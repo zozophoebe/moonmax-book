@@ -13,6 +13,7 @@ import { tokenString, toUnits } from './money'
 import { fetchPublicPaylink, toPreview } from './moonpay'
 import type { Storage } from './storage'
 import { loadWebhookEvents, loadWebhookSecret, type StoredWebhookEvent } from './store'
+import { maxImportStatus, maxTxids } from './max'
 
 export const HOOK_PATH = '/api/hook/moonpay'
 const USDC_DECIMALS = 6
@@ -70,6 +71,7 @@ export async function setupState(storage: Storage, config: PlatformConfig, lang:
       hookPath: HOOK_PATH,
     },
     maxDepositAddresses: config.maxDepositAddresses,
+    maxImport: await maxImportStatus(storage),
   }
 }
 
@@ -105,6 +107,7 @@ export async function buildReceipts(storage: Storage, config: PlatformConfig, la
   const events = await loadWebhookEvents(storage)
   const eventBySig = new Map(events.map((e) => [e.transactionSignature, e]))
   const maxAddresses = new Set(config.maxDepositAddresses.map((a) => a.address))
+  const maxDeposits = await maxTxids(storage)
 
   const reads: WalletRead[] = []
   const transfers: ChainTransfer[] = []
@@ -235,8 +238,10 @@ export async function buildReceipts(storage: Storage, config: PlatformConfig, la
       chain: 'Solana',
       token: t.token,
       amountToken: tokenString(t.amountUnits, USDC_DECIMALS),
+      from: t.wallet,
       to: t.counterparty,
-      toMax: Boolean(t.counterparty && maxAddresses.has(t.counterparty)),
+      // A known MAX deposit address, or a transfer MAX's own CSV lists as a deposit.
+      toMax: Boolean((t.counterparty && maxAddresses.has(t.counterparty)) || maxDeposits.has(t.signature)),
       explorerUrl: solscanTx(t.signature),
     }))
 

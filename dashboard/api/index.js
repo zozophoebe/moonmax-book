@@ -173,6 +173,7 @@ async function resetAll(storage) {
 		SECRET_KEY,
 		OWNER_KEY,
 		"auth.local",
+		"max.funds",
 		...await storage.list("events/")
 	]);
 }
@@ -309,14 +310,14 @@ var solscanTx = (signature) => `https://solscan.io/tx/${signature}`;
 //#endregion
 //#region server/fx.ts
 var FX_SOURCE = "currency-api";
-var RATE_DP = 4;
+var RATE_DP$1 = 4;
 var taipeiDate = (iso, minusDays = 0) => (/* @__PURE__ */ new Date(Date.parse(iso) + 288e5 - minusDays * 864e5)).toISOString().slice(0, 10);
 async function fetchRate(date) {
 	try {
 		const res = await fetchWithTimeout(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${date}/v1/currencies/usd.min.json`, {}, 8e3);
 		if (!res.ok) return null;
 		const body = await res.json();
-		return typeof body.usd?.twd === "number" ? body.usd.twd.toFixed(RATE_DP) : null;
+		return typeof body.usd?.twd === "number" ? body.usd.twd.toFixed(RATE_DP$1) : null;
 	} catch {
 		return null;
 	}
@@ -342,8 +343,8 @@ async function ratesFor(storage, isoTimes) {
 }
 function twdValue(grossUnits, tokenDecimals, rate) {
 	const [int = "0", frac = ""] = rate.split(".");
-	const rateScaled = BigInt(int + frac.padEnd(RATE_DP, "0").slice(0, RATE_DP));
-	const scale = 10n ** BigInt(tokenDecimals + RATE_DP);
+	const rateScaled = BigInt(int + frac.padEnd(RATE_DP$1, "0").slice(0, RATE_DP$1));
+	const scale = 10n ** BigInt(tokenDecimals + RATE_DP$1);
 	return ((grossUnits * rateScaled + scale / 2n) / scale).toString();
 }
 //#endregion
@@ -463,6 +464,342 @@ function extractWebhookEvent(body) {
 	};
 }
 //#endregion
+//#region server/max.ts
+var KEY = "max.funds";
+var DECIMALS = 6;
+var STABLES = /* @__PURE__ */ new Set(["USDC", "USDT"]);
+var loadStore = async (storage) => await storage.get(KEY) ?? {
+	records: [],
+	files: []
+};
+var clearMax = (storage) => storage.del([KEY]);
+var maxTxids = async (storage) => new Set((await loadStore(storage)).records.map((r) => r.txid));
+var recordKey = (r) => `${r.txid}|${r.currency}|${r.amount}`;
+async function maxImportStatus(storage) {
+	const s = await loadStore(storage);
+	return {
+		files: s.files.length,
+		records: s.records.length,
+		lastImportedAt: s.files.reduce((m, f) => !m || f.importedAt > m ? f.importedAt : m, null)
+	};
+}
+function parseCsv(text) {
+	const rows = [];
+	let row = [];
+	let cell = "";
+	let quoted = false;
+	const src = text.replace(/^﻿/, "");
+	for (let i = 0; i < src.length; i++) {
+		const ch = src[i];
+		if (quoted) {
+			if (ch === "\"" && src[i + 1] === "\"") {
+				cell += "\"";
+				i++;
+			} else if (ch === "\"") quoted = false;
+			else cell += ch;
+		} else if (ch === "\"") quoted = true;
+		else if (ch === ",") {
+			row.push(cell);
+			cell = "";
+		} else if (ch === "\n" || ch === "\r") {
+			if (ch === "\r" && src[i + 1] === "\n") i++;
+			row.push(cell);
+			if (row.some((c) => c.trim())) rows.push(row);
+			row = [];
+			cell = "";
+		} else cell += ch;
+	}
+	row.push(cell);
+	if (row.some((c) => c.trim())) rows.push(row);
+	return rows;
+}
+var HEADERS = {
+	at: [
+		"date",
+		"time",
+		"datetime",
+		"日期",
+		"時間"
+	],
+	currency: [
+		"currency",
+		"coin",
+		"asset",
+		"幣別",
+		"幣種",
+		"幣"
+	],
+	amount: [
+		"amount",
+		"volume",
+		"quantity",
+		"數量",
+		"金額"
+	],
+	txid: [
+		"txid",
+		"tx id",
+		"txhash",
+		"tx hash",
+		"transaction id",
+		"交易id",
+		"交易編號",
+		"交易序號"
+	],
+	status: ["status", "狀態"]
+};
+function toIso(raw) {
+	const m = raw.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?\s*(Z|[+-]\d{2}:?\d{2})?$/);
+	if (!m) return null;
+	const [, y, mo, d, h, mi, s = "00", tz = "+0800"] = m;
+	const zone = tz === "Z" ? "Z" : `${tz.slice(0, 3)}:${tz.slice(-2)}`;
+	const t = Date.parse(`${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T${h.padStart(2, "0")}:${mi}:${s}${zone}`);
+	return Number.isFinite(t) ? new Date(t).toISOString() : null;
+}
+async function importMaxCsv(storage, fileName, text) {
+	const rows = parseCsv(text);
+	const header = (rows[0] ?? []).map((h) => h.trim().toLowerCase());
+	const col = (k) => header.findIndex((h) => HEADERS[k].includes(h));
+	const idx = {
+		at: col("at"),
+		currency: col("currency"),
+		amount: col("amount"),
+		txid: col("txid"),
+		status: col("status")
+	};
+	if (idx.at < 0 || idx.currency < 0 || idx.amount < 0 || idx.txid < 0) throw new LocalizedError(T(`看不懂這個 CSV 的欄位（${(rows[0] ?? []).join(", ") || "空的"}）。目前支援 MAX 的「資金紀錄」匯出：Date, Currency, Amount, Txid, Status。`, `Can’t read this CSV’s columns (${(rows[0] ?? []).join(", ") || "empty"}). Supported for now: MAX’s funds-history export — Date, Currency, Amount, Txid, Status.`));
+	const store = await loadStore(storage);
+	const known = new Set(store.records.map(recordKey));
+	let added = 0;
+	let duplicates = 0;
+	let skipped = 0;
+	for (const r of rows.slice(1)) {
+		const txid = (r[idx.txid] ?? "").trim();
+		const at = toIso(r[idx.at] ?? "");
+		const amount = (r[idx.amount] ?? "").trim().replace(/,/g, "");
+		if (!txid || !at || !/^-?\d+(\.\d+)?$/.test(amount)) {
+			skipped++;
+			continue;
+		}
+		const currency = (r[idx.currency] ?? "").trim().toUpperCase();
+		const key = recordKey({
+			txid,
+			currency,
+			amount
+		});
+		if (known.has(key)) {
+			duplicates++;
+			continue;
+		}
+		known.add(key);
+		store.records.push({
+			txid,
+			at,
+			currency,
+			amount,
+			status: idx.status >= 0 ? (r[idx.status] ?? "").trim().toLowerCase() : "done",
+			file: fileName
+		});
+		added++;
+	}
+	store.files = [...store.files.filter((f) => f.name !== fileName), {
+		name: fileName,
+		rows: rows.length - 1,
+		importedAt: (/* @__PURE__ */ new Date()).toISOString()
+	}];
+	await storage.set(KEY, store);
+	return {
+		added,
+		duplicates,
+		skipped,
+		total: store.records.length
+	};
+}
+async function payersOf(storage, txids) {
+	const cache = await loadCache(storage, "solana-payer", {});
+	let changed = false;
+	for (const sig of txids) {
+		if (cache[sig] !== void 0) continue;
+		try {
+			const body = await (await fetchWithTimeout("https://api.mainnet-beta.solana.com", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					jsonrpc: "2.0",
+					id: 1,
+					method: "getTransaction",
+					params: [sig, {
+						encoding: "jsonParsed",
+						maxSupportedTransactionVersion: 0
+					}]
+				})
+			})).json();
+			const keys = body.result?.transaction.message.accountKeys ?? [];
+			if (!body.result) continue;
+			cache[sig] = { payer: keys.find((k) => k.signer)?.pubkey ?? keys[0]?.pubkey ?? null };
+			changed = true;
+		} catch {}
+	}
+	if (changed) await saveCache(storage, "solana-payer", cache);
+	return cache;
+}
+var RATE_DP = 4n;
+var rateScaled = (rate) => {
+	const [i = "0", f = ""] = rate.split(".");
+	return BigInt(i + f.padEnd(Number(RATE_DP), "0").slice(0, Number(RATE_DP)));
+};
+var centsOf = (units, rate) => {
+	const scale = 10n ** (BigInt(DECIMALS) + RATE_DP - 2n);
+	return (units * rateScaled(rate) + scale / 2n) / scale;
+};
+var twd = (cents) => {
+	const neg = cents < 0n;
+	const a = neg ? -cents : cents;
+	return `${neg ? "-" : ""}${a / 100n}.${(a % 100n).toString().padStart(2, "0")}`;
+};
+async function reconcile(storage, config, lang) {
+	const store = await loadStore(storage);
+	const view = await buildReceipts(storage, config, lang);
+	const receiving = new Set(view.wallets.map((w) => w.address));
+	const outgoing = new Map(view.outgoing.map((o) => [o.id, o]));
+	const lots = /* @__PURE__ */ new Map();
+	for (const r of [...view.receipts].filter((r) => r.sourceKey !== "other" && r.fxRateTwdPerUsd).sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))) {
+		const qty = toUnits(r.netToken, DECIMALS);
+		const lot = {
+			receiptId: r.id,
+			receivedAt: r.receivedAt,
+			sourceKey: r.sourceKey,
+			token: r.token,
+			left: qty,
+			qty,
+			costCents: centsOf(qty, r.fxRateTwdPerUsd),
+			rate: r.fxRateTwdPerUsd
+		};
+		lots.set(r.token, [...lots.get(r.token) ?? [], lot]);
+	}
+	const records = [...store.records].sort((a, b) => a.at.localeCompare(b.at));
+	const unknown = [...new Set(records.filter((d) => !outgoing.has(d.txid)).map((d) => d.txid))];
+	const payers = unknown.length ? await payersOf(storage, unknown) : {};
+	const rates = await ratesFor(storage, records.map((d) => d.at));
+	const rows = [];
+	let costTotal = 0n;
+	let valueTotal = 0n;
+	let matchedTotal = 0n;
+	let valueComplete = true;
+	const extras = /* @__PURE__ */ new Map();
+	const addExtra = (currency, amount) => extras.set(currency, [...extras.get(currency) ?? [], amount]);
+	const sumDecimals = (xs) => {
+		const dp = Math.max(2, ...xs.map((x) => x.split(".")[1]?.length ?? 0));
+		return tokenString(xs.reduce((s, x) => s + toUnits(x, dp), 0n), dp);
+	};
+	const detected = /* @__PURE__ */ new Set();
+	for (const d of records) {
+		const out = outgoing.get(d.txid);
+		const fromWallet = out ? out.from : payers[d.txid]?.payer ?? null;
+		const from = fromWallet ? receiving.has(fromWallet) ? "receiving-wallet" : "other-wallet" : "not-found";
+		if (out?.to) detected.add(out.to);
+		const units = toUnits(d.amount.replace(/^-/, ""), DECIMALS);
+		const row = {
+			id: recordKey(d),
+			txid: d.txid,
+			at: d.at,
+			currency: d.currency,
+			amount: d.amount,
+			status: d.status,
+			origin: from,
+			fromWallet,
+			matched: null,
+			extra: null
+		};
+		const done = d.status === "done" || d.status === "completed" || d.status === "完成";
+		const direction = d.amount.startsWith("-") ? "out" : "in";
+		if (!done || direction === "out" || d.currency === "TWD") {
+			rows.push(row);
+			continue;
+		}
+		let extraKind = null;
+		let extraAmount = d.amount;
+		if (!STABLES.has(d.currency)) extraKind = "other-asset";
+		else if (from !== "receiving-wallet") extraKind = from === "other-wallet" ? "other-wallet" : "not-found";
+		else {
+			let need = units;
+			const used = [];
+			let cost = 0n;
+			let value = 0n;
+			const rate = rates.get(d.at) ?? null;
+			for (const lot of lots.get(d.currency) ?? []) {
+				if (need === 0n) break;
+				if (lot.left === 0n) continue;
+				const take = lot.left < need ? lot.left : need;
+				const part = (lot.costCents * take + lot.qty / 2n) / lot.qty;
+				lot.left -= take;
+				need -= take;
+				cost += part;
+				if (rate) value += centsOf(take, rate);
+				used.push({
+					receiptId: lot.receiptId,
+					receivedAt: lot.receivedAt,
+					sourceKey: lot.sourceKey,
+					amount: tokenString(take, DECIMALS),
+					costTwd: twd(part),
+					rateAtReceipt: lot.rate
+				});
+			}
+			const matchedUnits = units - need;
+			if (matchedUnits > 0n) {
+				costTotal += cost;
+				matchedTotal += matchedUnits;
+				if (!rate) valueComplete = false;
+				else valueTotal += value;
+				row.matched = {
+					token: d.currency,
+					amount: tokenString(matchedUnits, DECIMALS),
+					lots: used,
+					costTwd: twd(cost),
+					rateAtDeposit: rate,
+					valueTwd: rate ? twd(value) : null,
+					fxDiffTwd: rate ? twd(value - cost) : null
+				};
+			}
+			if (need > 0n) {
+				extraKind = "beyond-income";
+				extraAmount = tokenString(need, DECIMALS);
+			}
+		}
+		if (extraKind) {
+			row.extra = {
+				kind: extraKind,
+				currency: d.currency,
+				amount: extraAmount
+			};
+			addExtra(d.currency, extraAmount);
+		}
+		rows.push(row);
+	}
+	const remaining = [...lots.entries()].map(([token, ls]) => ({
+		token,
+		amount: tokenString(ls.reduce((s, l) => s + l.left, 0n), DECIMALS)
+	})).filter((r) => r.amount !== "0.00");
+	return {
+		checkedAt: (/* @__PURE__ */ new Date()).toISOString(),
+		files: store.files,
+		rows: rows.reverse(),
+		totals: {
+			matchedToken: tokenString(matchedTotal, DECIMALS),
+			costTwd: twd(costTotal),
+			valueTwd: valueComplete ? twd(valueTotal) : null,
+			fxDiffTwd: valueComplete ? twd(valueTotal - costTotal) : null,
+			extras: [...extras.entries()].map(([currency, xs]) => ({
+				currency,
+				amount: sumDecimals(xs)
+			}))
+		},
+		remainingIncome: remaining,
+		detectedMaxAddresses: [...detected],
+		maxAddressSet: config.maxDepositAddresses.some((a) => a.chain === "solana")
+	};
+}
+//#endregion
 //#region server/ledger.ts
 var HOOK_PATH = "/api/hook/moonpay";
 var USDC_DECIMALS = 6;
@@ -523,7 +860,8 @@ async function setupState(storage, config, lang) {
 			lastEventAt: events.reduce((m, e) => !m || e.receivedAt > m ? e.receivedAt : m, null),
 			hookPath: HOOK_PATH
 		},
-		maxDepositAddresses: config.maxDepositAddresses
+		maxDepositAddresses: config.maxDepositAddresses,
+		maxImport: await maxImportStatus(storage)
 	};
 }
 var CHAIN_NAME = {
@@ -568,6 +906,7 @@ async function buildReceipts(storage, config, lang) {
 	const events = await loadWebhookEvents(storage);
 	const eventBySig = new Map(events.map((e) => [e.transactionSignature, e]));
 	const maxAddresses = new Set(config.maxDepositAddresses.map((a) => a.address));
+	const maxDeposits = await maxTxids(storage);
 	const reads = [];
 	const transfers = [];
 	for (const w of wallets) {
@@ -730,8 +1069,9 @@ async function buildReceipts(storage, config, lang) {
 		chain: "Solana",
 		token: t.token,
 		amountToken: tokenString(t.amountUnits, USDC_DECIMALS),
+		from: t.wallet,
 		to: t.counterparty,
-		toMax: Boolean(t.counterparty && maxAddresses.has(t.counterparty)),
+		toMax: Boolean(t.counterparty && maxAddresses.has(t.counterparty) || maxDeposits.has(t.signature)),
 		explorerUrl: solscanTx(t.signature)
 	}));
 	return {
@@ -815,9 +1155,9 @@ function assertSameOrigin(req) {
 	if (!ok) throw new HttpError(403, T("只接受從 MoonMax Book 自己的頁面送出的修改。", "Changes are only accepted from MoonMax Book’s own pages."));
 	if (req.method !== "DELETE" && !(req.headers.get("content-type") ?? "").includes("application/json")) throw new HttpError(415, T("需要 JSON。", "JSON required."));
 }
-async function readBody(req) {
+async function readBody(req, limit = 1e4) {
 	const text = await req.text();
-	if (text.length > 1e4) throw new HttpError(413, T("內容太大。", "Request too large."));
+	if (text.length > limit) throw new HttpError(413, T("內容太大。", "Request too large."));
 	if (!text) return {};
 	try {
 		return JSON.parse(text);
@@ -967,6 +1307,25 @@ function routes(ctx, id, lang) {
 			}
 		},
 		"/api/real/receipts": { GET: async () => buildReceipts(storage, await loadConfig(storage), lang) },
+		"/api/max/recon": { GET: async () => reconcile(storage, await loadConfig(storage), lang) },
+		"/api/max/import": {
+			POST: async (req) => {
+				const body = await readBody(req, 2e6);
+				const text = typeof body.text === "string" ? body.text : "";
+				const fileName = (typeof body.fileName === "string" ? body.fileName : "max.csv").slice(0, 120);
+				if (!text.trim()) throw new HttpError(400, T("這個檔案是空的。", "This file is empty."));
+				try {
+					return await importMaxCsv(storage, fileName, text);
+				} catch (e) {
+					if (e instanceof LocalizedError) throw new HttpError(422, e.text);
+					throw e;
+				}
+			},
+			DELETE: async () => {
+				await clearMax(storage);
+				return { ok: true };
+			}
+		},
 		"/api/real/creator": { GET: async () => {
 			const config = await loadConfig(storage);
 			const first = config.paylinks[0];

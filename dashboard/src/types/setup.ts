@@ -65,4 +65,5 @@ export type SetupState = {
   wallets: ReceivingWallet[]
   webhook: WebhookState
   maxDepositAddresses: DepositAddress[]
+  maxImport: { files: number; records: number; lastImportedAt: string | null }
 }

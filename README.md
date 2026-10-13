@@ -12,7 +12,8 @@ Bookkeeping for Taiwanese creators paid in crypto: payments through MoonPay Comm
 |---|---|
 | **不需要 API 金鑰** | 收款直接從公開的區塊鏈讀收款錢包（Solana USDC／USDT）；MoonPay 的 webhook 只用來標出每筆屬於哪個 Pay Link。不存任何人的 MoonPay Secret Key 或 MAX 帳密。 |
 | **多網站分開列** | 一個網站／商品一個 Pay Link，收款紀錄依來源分頁，各自有筆數、手續費、實收、台幣小計。 |
-| **開始使用 5 步** | 加入 Pay Link → 確認收款錢包 → 設定 webhook → MAX 入金地址 → 匯入 MAX CSV（開發中）。每一步寫清楚去 MoonPay／MAX 哪裡找。 |
+| **開始使用 5 步** | 加入 Pay Link → 確認收款錢包 → 設定 webhook → MAX 入金地址 → 匯入 MAX CSV。每一步寫清楚去 MoonPay／MAX 哪裡找。 |
+| **MAX 出金對帳** | 上傳 MAX 的資金紀錄 CSV，每筆入金用交易編號回鏈上核對：從收款錢包轉進去的 USDC 用先進先出對到 MoonPay 收入，列出收到時與入金當天的台幣和匯率差；自己另外轉進去的（SOL、別的錢包、比收入多的部分）標成「額外轉入」。 |
 | **台幣價值** | 買家付的金額 × 收到當天的 USD/TWD；手續費另列。 |
 | **Google 登入** | 部署版只用 Google 登入；第一個登入的帳號成為擁有者。沒設 Google 金鑰時整站關閉。 |
 | **中英切換** | 介面、說明文件、伺服器訊息都有中文與英文。 |

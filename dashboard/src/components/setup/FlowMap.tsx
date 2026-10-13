@@ -42,7 +42,11 @@ export function FlowMap({ setup }: { setup: SetupState | null }) {
       title: t('MAX 交易所', 'MAX exchange'),
       body: t('把 Solana 上的 USDC 轉進來，賣成新台幣。', 'Send in the USDC on Solana and sell it for TWD.'),
       Icon: Building2,
-      status: hasMax ? { label: t('入金地址已設定', 'Deposit address set'), tone: 'ok' } : { label: t('尚未設定地址', 'No address yet'), tone: 'warn' },
+      status: setup?.maxImport.records
+        ? { label: t(`已匯入 ${setup.maxImport.records} 筆紀錄`, `${setup.maxImport.records} record${setup.maxImport.records > 1 ? 's' : ''} imported`), tone: 'ok' }
+        : hasMax
+          ? { label: t('入金地址已設定', 'Deposit address set'), tone: 'ok' }
+          : { label: t('尚未設定地址', 'No address yet'), tone: 'warn' },
     },
     {
       key: 'bank',

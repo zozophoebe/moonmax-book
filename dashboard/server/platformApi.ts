@@ -43,7 +43,8 @@ export function platformApi(): Plugin {
         if (!url.pathname.startsWith('/api/')) return next()
 
         const method = req.method ?? 'GET'
-        const body = method === 'GET' || method === 'HEAD' ? null : await readRaw(req, 64_000)
+        // 2 MB covers MAX CSV uploads; the webhook route enforces its own 64 KB limit.
+        const body = method === 'GET' || method === 'HEAD' ? null : await readRaw(req, 2_000_000)
         if (body === null && method !== 'GET' && method !== 'HEAD') {
           res.statusCode = 413
           res.end(JSON.stringify({ error: req.headers['x-moonmax-lang'] === 'en' ? 'Request too large.' : '內容太大。' }))

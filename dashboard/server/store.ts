@@ -45,10 +45,10 @@ export async function loadWebhookEvents(storage: Storage): Promise<StoredWebhook
 
 export const saveWebhookEvent = (storage: Storage, event: StoredWebhookEvent) => storage.set(eventKey(event.transactionSignature), event)
 
-// "Sign out and start over": settings, Secret, received events and the Google owner.
+// "Sign out and start over": settings, Secret, received events, imported MAX records and the Google owner.
 // ('auth.local' is a leftover from the earlier password login.) Public caches stay.
 export async function resetAll(storage: Storage): Promise<void> {
-  await storage.del(['config', SECRET_KEY, OWNER_KEY, 'auth.local', ...(await storage.list('events/'))])
+  await storage.del(['config', SECRET_KEY, OWNER_KEY, 'auth.local', 'max.funds', ...(await storage.list('events/'))])
 }
 
 // ---------- caches (public data, safe to delete) ----------

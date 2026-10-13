@@ -52,6 +52,7 @@ export type OutgoingTransfer = {
   chain: string
   token: string
   amountToken: string
+  from: string // the receiving wallet it left
   to: string | null
   toMax: boolean
   explorerUrl: string

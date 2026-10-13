@@ -58,7 +58,14 @@ export function CashoutZh() {
       </Step>
 
       <Step n={6} title="把 MAX 紀錄匯入 MoonMax Book">
-        <p>從 MAX 匯出交易紀錄 CSV，匯入 MoonMax Book（這個功能還在做）。每筆出金會用先進先出法對到你的收入，算出這次出金賺或賠多少。</p>
+        <p>
+          從 MAX 網頁版匯出<strong>資金紀錄</strong> CSV（MAX 給的是有密碼的 zip，先解壓縮），在「開始使用」第 5 步上傳。每筆入金會用交易編號回鏈上核對：
+        </p>
+        <ul>
+          <li>從收款錢包轉進去的 USDC，用先進先出法對到你的 MoonPay 收入，列出收到時和入金當天的台幣價值，以及<strong>匯率差</strong>。</li>
+          <li>你自己另外轉進去的（例如 SOL、別的錢包轉的，或比 MoonPay 收入還多的 USDC），會標成<strong>額外轉入</strong>，不算進收入。</li>
+        </ul>
+        <p>資金紀錄裡沒有賣出價，所以匯率差先用入金當天的匯率估算。</p>
       </Step>
 
       <h2>千萬不要這樣做</h2>
@@ -158,7 +165,14 @@ export function CashoutEn() {
       </Step>
 
       <Step n={6} title="Bring your MAX records into MoonMax Book">
-        <p>Export your transaction CSV from MAX and import it into MoonMax Book (still being built). Each cash-out is matched to your income first-in-first-out to work out its gain or loss.</p>
+        <p>
+          On MAX’s website, export your <strong>funds history</strong> CSV (MAX sends a password-protected zip — unzip it first) and upload it in step 5 of Get started. Each deposit is checked on chain by its transaction ID:
+        </p>
+        <ul>
+          <li>USDC from your receiving wallets is matched to your MoonPay income oldest first, showing its TWD value when received and on the deposit day, and the <strong>exchange-rate difference</strong>.</li>
+          <li>Anything you sent yourself (such as SOL, transfers from another wallet, or more USDC than your MoonPay income) is marked as an <strong>extra transfer</strong> and kept out of your income.</li>
+        </ul>
+        <p>The funds history has no sale prices, so the difference is estimated with the deposit-day rate for now.</p>
       </Step>
 
       <h2>Never do this</h2>

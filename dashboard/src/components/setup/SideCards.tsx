@@ -82,12 +82,13 @@ export function PrivacyCard() {
         { Icon: FileCode2, file: t('設定', 'Settings'), body: t('Pay Link ID、網站網址、MAX 地址。都是公開資訊，存在這個網站專用的私人 Vercel Blob。', 'Pay Link IDs, site addresses, MAX address — all public information, kept in this site’s private Vercel Blob store.') },
         { Icon: FileLock2, file: 'Webhook Secret', body: t('同一個私人 Blob，只有這個網站的伺服器讀得到，畫面只顯示最後 4 碼。', 'Same private store; only this site’s server can read it, and the page shows just the last 4 characters.') },
         { Icon: Database, file: t('MoonPay 通知', 'MoonPay notifications'), body: t('只留金額、時間、交易編號和 Pay Link，買家個資收到就丟。', 'Only amount, time, transaction ID and Pay Link are kept; buyer details are thrown away on arrival.') },
+        { Icon: Database, file: t('MAX 紀錄', 'MAX records'), body: t('匯入的 CSV 只留日期、幣別、金額、交易編號和狀態，可以隨時清除。', 'Imported CSVs keep only date, coin, amount, transaction ID and status; clear them any time.') },
         { Icon: FileLock2, file: t('登入', 'Sign-in'), body: t('只能用綁定的 Google 帳號登入。Google 金鑰放在 Vercel 的環境變數，網站上看不到。', 'Only the linked Google account can sign in. The Google keys sit in Vercel environment variables, never on the page.') },
       ]
     : [
         { Icon: FileCode2, file: 'platform.config.json', body: t('Pay Link ID、網站網址、MAX 地址。都是公開資訊。', 'Pay Link IDs, site addresses, MAX address — all public information.') },
         { Icon: FileLock2, file: 'data/webhook.local.json', body: t('Webhook Secret。只在你電腦上，畫面只顯示最後 4 碼。', 'The webhook Secret. Only on your computer; the page shows its last 4 characters.') },
-        { Icon: Database, file: 'data/*.json', body: t('區塊鏈讀取快取和 MoonPay 通知。通知只留金額、時間、交易編號和 Pay Link，買家個資收到就丟。', 'Blockchain read cache and MoonPay notifications. Only amount, time, transaction ID and Pay Link are kept; buyer details are thrown away.') },
+        { Icon: Database, file: 'data/*.json', body: t('區塊鏈讀取快取、MoonPay 通知和匯入的 MAX 紀錄。通知只留金額、時間、交易編號和 Pay Link，買家個資收到就丟。', 'Blockchain read cache, MoonPay notifications and imported MAX records. Only amount, time, transaction ID and Pay Link are kept from notifications; buyer details are thrown away.') },
       ]
   return (
     <SideCard delay={120}>

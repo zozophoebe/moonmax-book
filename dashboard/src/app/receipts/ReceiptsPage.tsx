@@ -7,7 +7,9 @@ import { getReceipts } from '../../services/receipts'
 import { Button, Card, Eyebrow, Money, NetworkBadge, SectionError, SkeletonBar } from '../../components/atoms'
 import { href } from '../router'
 import { useT, useTx, type T } from '../../i18n'
-import { fxSourceText, sourceLabel, walletLimitText } from '../../lib/words'
+import { extraText, fxSourceText, signedTwd, sourceLabel, walletLimitText } from '../../lib/words'
+import { getRecon } from '../../services/max'
+import type { ReconRow } from '../../types/max'
 
 const ALL = 'all'
 
@@ -165,14 +167,122 @@ function Loaded({ view, active, onSelect }: { view: ReceiptsView; active: string
         <Card className="mt-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-5 py-3.5">
             <h2 className="text-[15px] font-semibold">{t('轉出紀錄', 'Transfers out')}</h2>
-            <span className="text-[12px] text-fg-3">{t('從收款錢包轉出去的 USDC。轉到 MAX 的，之後會跟 MAX 的出金紀錄對起來。', 'USDC sent out of your receiving wallets. Transfers to MAX will be matched with your MAX cash-outs.')}</span>
+            <span className="text-[12px] text-fg-3">{t('從收款錢包轉出去的 USDC。匯入 MAX 紀錄後，轉到 MAX 的會在下面對帳。', 'USDC sent out of your receiving wallets. Once MAX records are imported, transfers to MAX are reconciled below.')}</span>
           </div>
           <OutgoingTable rows={view.outgoing} />
         </Card>
       ) : null}
 
+      <MaxRecon labelOf={labelOf} />
+
       <Footnotes view={view} />
     </>
+  )
+}
+
+// MAX deposits matched to MoonPay income (oldest income first), plus anything extra you sent.
+function MaxRecon({ labelOf }: { labelOf: (key: string) => string }) {
+  const t = useT()
+  const [recon] = useResource(getRecon, [])
+  if (recon.status !== 'ready' || !recon.data.rows.length) return null
+  const view = recon.data
+  return (
+    <Card className="mt-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-5 py-3.5">
+        <h2 className="text-[15px] font-semibold">{t('出金對帳（MAX）', 'Cash-out reconciliation (MAX)')}</h2>
+        <span className="text-[12px] text-fg-3">{t(`${view.files.length} 個 CSV · 收入用先進先出對`, `${view.files.length} CSV file${view.files.length > 1 ? 's' : ''} · income matched oldest first`)}</span>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-border px-5 py-4 md:grid-cols-4">
+        <div>
+          <dt className="text-[12px] text-fg-3">{t('對到 MoonPay 收入', 'Matched to MoonPay income')}</dt>
+          <dd className="num text-[17px] font-semibold">
+            {formatTokenAmount(view.totals.matchedToken)} <span className="text-[11.5px] font-medium text-fg-3">USDC</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[12px] text-fg-3">{t('收到時的台幣', 'TWD when received')}</dt>
+          <dd className="text-[17px] font-semibold">
+            <Money value={view.totals.costTwd} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[12px] text-fg-3">{t('入金當天的台幣', 'TWD on deposit day')}</dt>
+          <dd className="text-[17px] font-semibold">{view.totals.valueTwd ? <Money value={view.totals.valueTwd} /> : '—'}</dd>
+        </div>
+        <div>
+          <dt className="text-[12px] text-fg-3">{t('匯率差', 'Exchange-rate difference')}</dt>
+          <dd className="num text-[17px] font-semibold">{view.totals.fxDiffTwd ? signedTwd(view.totals.fxDiffTwd) : '—'}</dd>
+        </div>
+      </dl>
+      <ul className="divide-y divide-border px-5">
+        {view.rows.map((r) => (
+          <ReconItem key={r.id} r={r} labelOf={labelOf} />
+        ))}
+      </ul>
+      <p className="border-t border-border px-5 py-3 text-[12px] leading-[1.7] text-fg-3">
+        {t(
+          '匯率差 = 入金當天的台幣價值 − 收到時的台幣價值，兩邊都用當天的美元兌台幣匯率。MAX 的資金紀錄沒有賣出價，實際賣掉的價格可能不同。',
+          'Exchange-rate difference = TWD value on the deposit day − TWD value when received, both at that day’s USD/TWD rate. MAX’s funds history has no sale prices, so what you actually sold for may differ.',
+        )}
+      </p>
+    </Card>
+  )
+}
+
+function ReconItem({ r, labelOf }: { r: ReconRow; labelOf: (key: string) => string }) {
+  const t = useT()
+  const extra = r.extra ? extraText(t, r.extra.kind) : null
+  const skipped = !r.matched && !r.extra
+  return (
+    <li className="py-3.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <span className="num w-[132px] text-[13px] text-fg-2">
+          {formatDate(r.at)} {formatTime(r.at)}
+        </span>
+        <span className="num min-w-[110px] text-[14px] font-medium">
+          +{r.amount} <span className="text-[12px] font-normal text-fg-3">{r.currency}</span>
+        </span>
+        {r.matched ? (
+          <span className="inline-flex items-center gap-1 rounded-md border border-success/20 bg-success-soft px-1.5 text-[11.5px] leading-5 text-success">
+            <CircleCheck className="size-3" aria-hidden />
+            {t('對到收入', 'Matched to income')}
+          </span>
+        ) : null}
+        {extra ? <span className="rounded-md border border-warn/25 bg-warn-soft px-1.5 text-[11.5px] leading-5 text-warn">{extra.label}</span> : null}
+        {skipped ? <span className="rounded-md border border-border bg-muted px-1.5 text-[11.5px] leading-5 text-fg-3">{t(`沒列入對帳（${r.status || '—'}）`, `Not reconciled (${r.status || '—'})`)}</span> : null}
+        <span className="flex-1" />
+        {r.origin !== 'not-found' ? <TxLink url={`https://solscan.io/tx/${r.txid}`} /> : null}
+      </div>
+      {r.matched ? (
+        <div className="mt-2 rounded-lg bg-muted/60 px-3.5 py-2.5 text-[12.5px] leading-[1.7] text-fg-2">
+          <p>
+            {t('收到時', 'When received')} <Money value={r.matched.costTwd} className="font-medium text-fg" /> → {t('入金當天', 'On deposit day')}{' '}
+            {r.matched.valueTwd ? <Money value={r.matched.valueTwd} className="font-medium text-fg" /> : '—'}
+            {r.matched.rateAtDeposit ? <span className="text-fg-3">{t(`（匯率 ${r.matched.rateAtDeposit}）`, ` (rate ${r.matched.rateAtDeposit})`)}</span> : null}
+            {r.matched.fxDiffTwd ? (
+              <>
+                {' · '}
+                {t('匯率差', 'Difference')} <span className="num font-medium text-fg">{signedTwd(r.matched.fxDiffTwd)}</span>
+              </>
+            ) : null}
+          </p>
+          <ul className="mt-1 space-y-0.5 text-fg-3">
+            {r.matched.lots.map((l) => (
+              <li key={`${l.receiptId}-${l.amount}`} className="num">
+                {t('來自', 'From')} {formatDate(l.receivedAt)} · {labelOf(l.sourceKey)} · {formatTokenAmount(l.amount)} {r.matched!.token} · <Money value={l.costTwd} />
+                {t(`（匯率 ${l.rateAtReceipt}）`, ` (rate ${l.rateAtReceipt})`)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {extra && r.extra ? (
+        <p className="mt-1.5 text-[12.5px] leading-[1.65] text-fg-3">
+          {r.matched ? t(`其中 ${r.extra.amount} ${r.extra.currency}：`, `${r.extra.amount} ${r.extra.currency} of it: `) : null}
+          {extra.hint}
+        </p>
+      ) : null}
+    </li>
   )
 }
 

@@ -1,11 +1,12 @@
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowRight, CircleCheck, Copy, ExternalLink, LoaderCircle, Pencil, Plus, TriangleAlert, X } from 'lucide-react'
+import { useId, useState, type FormEvent } from 'react'
+import { ArrowRight, CircleCheck, Copy, ExternalLink, LoaderCircle, Pencil, Plus, TriangleAlert, Upload, X } from 'lucide-react'
 import type { PaylinkEntry, ReceivingWallet, SetupState } from '../../types/setup'
 import type { ReceiptsView } from '../../types/receipts'
 import { formatDateTime, formatTokenAmount } from '../../lib/format'
 import { useResource } from '../../lib/useResource'
-import { walletLimitText } from '../../lib/words'
+import { signedTwd, walletLimitText } from '../../lib/words'
 import { getReceipts } from '../../services/receipts'
+import { clearMaxImport, getRecon, importMaxCsv } from '../../services/max'
 import { isDeployed } from '../../lib/runtime'
 import { useT, useTx } from '../../i18n'
 import { Button, NetworkBadge } from '../atoms'
@@ -695,14 +696,188 @@ export function MaxAddressStep({ setup, busy, error, onSave, onClear }: { setup:
   )
 }
 
-export function CsvStep(): ReactNode {
+// ---------------------------------------------------------------------------
+// Step 5 — MAX CSV: match deposits to MoonPay income, flag extra transfers
+
+export function MaxImportStep({ setup, onChanged, onUseAddress }: { setup: SetupState; onChanged: () => void; onUseAddress: (address: string) => void }) {
   const t = useT()
+  const tx = useTx()
+  const [busy, setBusy] = useState(false)
+  const [drag, setDrag] = useState(false)
+  const [results, setResults] = useState<{ name: string; ok: boolean; text: string }[]>([])
+  const inputId = useId()
+  const [recon] = useResource(getRecon, [setup.maxImport.records, setup.paylinks.length])
+
+  const handle = async (files: File[]) => {
+    if (!files.length) return
+    setBusy(true)
+    const out: { name: string; ok: boolean; text: string }[] = []
+    for (const f of files) {
+      if (/\.zip$/i.test(f.name)) {
+        out.push({ name: f.name, ok: false, text: t('這是 zip。MAX 匯出的 zip 有密碼，先解壓縮，再上傳裡面的 CSV。', 'This is a zip. MAX’s exports are password-protected — unzip it first, then upload the CSV inside.') })
+        continue
+      }
+      try {
+        const r = await importMaxCsv(f.name, await f.text())
+        out.push({
+          name: f.name,
+          ok: true,
+          text: t(`匯入 ${r.added} 筆${r.duplicates ? `，略過重複的 ${r.duplicates} 筆` : ''}${r.skipped ? `，看不懂的 ${r.skipped} 列跳過` : ''}`, `${r.added} added${r.duplicates ? `, ${r.duplicates} duplicates skipped` : ''}${r.skipped ? `, ${r.skipped} unreadable rows skipped` : ''}`),
+        })
+      } catch (e) {
+        out.push({ name: f.name, ok: false, text: e instanceof Error ? e.message : String(e) })
+      }
+    }
+    setResults(out)
+    setBusy(false)
+    onChanged()
+  }
+
+  const clear = async () => {
+    setBusy(true)
+    await clearMaxImport().catch(() => null)
+    setResults([])
+    setBusy(false)
+    onChanged()
+  }
+
+  const view = recon.status === 'ready' ? recon.data : null
+  const detected = view && !view.maxAddressSet ? view.detectedMaxAddresses[0] : undefined
+
   return (
-    <p className="text-[13.5px] leading-[1.7] text-fg-2">
-      {t(
-        'MAX 沒有開放給第三方的 API，賣成台幣的紀錄要從 MAX 匯出 CSV 再匯入。匯入後每筆出金會用先進先出法對到你的收款，算出賺賠。這個功能還在做。',
-        'MAX has no API for third parties, so your TWD sales come in as a CSV exported from MAX. Each cash-out is then matched to your receipts first-in-first-out to work out the gain or loss. This part is still being built.',
-      )}
-    </p>
+    <div className="space-y-4">
+      <p className="text-[13.5px] leading-[1.7] text-fg-2">
+        {t(
+          '把 MAX 匯出的資金紀錄放進來。每筆入金會用交易編號回鏈上核對：從收款錢包轉進去的 USDC 對到你的 MoonPay 收入、算出匯率差；你另外轉進去的（例如 SOL，或比收入多的 USDC）會標成「額外轉入」。',
+          'Bring in MAX’s funds-history export. Each deposit is checked on chain by its transaction ID: USDC from your receiving wallets is matched to your MoonPay income with its exchange-rate difference, and anything you sent yourself (like SOL, or more USDC than you earned) is marked as an extra transfer.',
+        )}
+      </p>
+      <WhereToFind
+        steps={tx(
+          [
+            <>
+              在 <ExtLink href={MAX_URL}>MAX</ExtLink> 網頁版匯出<strong className="font-medium text-fg">資金紀錄</strong>（Funds history），檔名長得像 <span className="font-mono text-[12.5px] text-fg">funds_history_….csv</span>。選單名稱以 MAX 為準。
+            </>,
+            <>MAX 給的是有密碼的 zip，先解壓縮。</>,
+            <>把 CSV 拖進下面的框，或點框選檔。可以一次選好幾個，重複的紀錄會自動略過。</>,
+          ],
+          [
+            <>
+              On <ExtLink href={MAX_URL}>MAX</ExtLink>’s website, export your <strong className="font-medium text-fg">funds history</strong> — the file looks like <span className="font-mono text-[12.5px] text-fg">funds_history_….csv</span>. Menu names may differ.
+            </>,
+            <>MAX sends a password-protected zip — unzip it first.</>,
+            <>Drop the CSV into the box below, or click the box to choose it. Several at once is fine; duplicate rows are skipped.</>,
+          ],
+        )}
+      />
+
+      <label
+        htmlFor={inputId}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDrag(true)
+        }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDrag(false)
+          void handle([...e.dataTransfer.files])
+        }}
+        className={`focus-within:ring-2 focus-within:ring-fg/10 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-5 py-6 text-center transition-transform duration-150 active:scale-[0.99] ${
+          drag ? 'border-fg/50 bg-muted' : 'border-border-strong bg-card hover:bg-muted/60'
+        }`}
+      >
+        {busy ? <LoaderCircle className="size-6 animate-spin text-fg-3" aria-hidden /> : <Upload className="size-6 text-fg-3" aria-hidden />}
+        <span className="text-[14px] font-medium text-fg">{t('拖進 MAX 的 CSV，或按這裡選擇', 'Drop MAX CSVs here, or click to choose')}</span>
+        <span className="text-[12.5px] text-fg-3">{t('只讀檔案內容，不需要 MAX 帳號密碼', 'Only the file is read — no MAX login needed')}</span>
+        <input
+          id={inputId}
+          type="file"
+          accept=".csv,text/csv"
+          multiple
+          className="sr-only"
+          disabled={busy}
+          onChange={(e) => {
+            void handle([...(e.target.files ?? [])])
+            e.target.value = ''
+          }}
+        />
+      </label>
+
+      {results.length ? (
+        <ul className="space-y-1.5">
+          {results.map((r) => (
+            <li key={r.name} className={`flex items-start gap-2 text-[13px] leading-[1.6] ${r.ok ? 'text-fg-2' : 'text-danger-deep'}`}>
+              {r.ok ? <CircleCheck className="mt-[3px] size-3.5 shrink-0 text-success" aria-hidden /> : <TriangleAlert className="mt-[3px] size-3.5 shrink-0" aria-hidden />}
+              <span>
+                <span className="font-mono text-[12px]">{r.name}</span> · {r.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {view && view.rows.length ? (
+        <div className="rounded-lg border border-border bg-background p-4">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
+            <div>
+              <dt className="text-[12px] text-fg-3">{t('對到 MoonPay 收入', 'Matched to MoonPay income')}</dt>
+              <dd className="num text-[17px] font-semibold">
+                {formatTokenAmount(view.totals.matchedToken)} <span className="text-[11.5px] font-medium text-fg-3">USDC</span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[12px] text-fg-3">{t('收到時的台幣', 'TWD when received')}</dt>
+              <dd className="num text-[17px] font-semibold">NT${view.totals.costTwd}</dd>
+            </div>
+            <div>
+              <dt className="text-[12px] text-fg-3">{t('入金當天的台幣', 'TWD on deposit day')}</dt>
+              <dd className="num text-[17px] font-semibold">{view.totals.valueTwd ? `NT$${view.totals.valueTwd}` : '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-[12px] text-fg-3">{t('匯率差', 'Exchange-rate difference')}</dt>
+              <dd className="num text-[17px] font-semibold">{view.totals.fxDiffTwd ? signedTwd(view.totals.fxDiffTwd) : '—'}</dd>
+            </div>
+          </dl>
+          {view.totals.extras.length ? (
+            <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[12.5px] text-fg-2">
+              <span className="rounded-md border border-warn/25 bg-warn-soft px-1.5 leading-5 text-warn">{t('額外轉入', 'Extra transfers')}</span>
+              {view.totals.extras.map((x) => `${x.amount} ${x.currency}`).join(t('、', ', '))}
+              <span className="text-fg-3">{t('— 不是 MoonPay 收入，不算進對帳', '— not MoonPay income, kept out of the match')}</span>
+            </p>
+          ) : null}
+          {view.remainingIncome.length ? (
+            <p className="mt-1.5 text-[12.5px] text-fg-3">
+              {t(
+                `還在收款錢包、沒轉到 MAX 的收入：${view.remainingIncome.map((r) => `${r.amount} ${r.token}`).join('、')}`,
+                `Income still in your receiving wallets: ${view.remainingIncome.map((r) => `${r.amount} ${r.token}`).join(', ')}`,
+              )}
+            </p>
+          ) : null}
+          <a href="#/receipts" className="focus-ring mt-3 inline-flex items-center gap-1 rounded text-[13px] font-medium text-fg underline decoration-primary decoration-2 underline-offset-[3px]">
+            {t('看每一筆的對帳', 'See each deposit’s match')}
+            <ArrowRight className="size-3.5" aria-hidden />
+          </a>
+        </div>
+      ) : null}
+
+      {detected ? (
+        <Tip>
+          <span className="flex flex-wrap items-center gap-2">
+            {t('從 MAX 紀錄看到你的 Solana 入金地址是', 'Your MAX records show your Solana deposit address is')} <span className="font-mono text-[12px] text-fg">{short(detected)}</span>
+            <Button size="sm" onClick={() => onUseAddress(detected)}>
+              {t('設成 MAX 入金地址', 'Use as MAX deposit address')}
+            </Button>
+          </span>
+        </Tip>
+      ) : null}
+
+      {setup.maxImport.records ? (
+        <Button size="sm" variant="ghost" onClick={clear} disabled={busy}>
+          <X className="size-[14px]" aria-hidden />
+          {t(`清除匯入的 MAX 紀錄（${setup.maxImport.records} 筆）`, `Clear imported MAX records (${setup.maxImport.records})`)}
+        </Button>
+      ) : null}
+    </div>
   )
 }

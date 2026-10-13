@@ -10,6 +10,8 @@ import { fetchWithTimeout } from './http'
 import { langOf, pick, T, type Lang, type Text } from './i18n'
 import { buildReceipts, HOOK_PATH, setupState } from './ledger'
 import { extractWebhookEvent, fetchPublicPaylink, PaylinkNotFound, verifyWebhook } from './moonpay'
+import { clearMax, importMaxCsv, reconcile } from './max'
+import { LocalizedError } from './i18n'
 import type { Storage } from './storage'
 import { clearWebhookSecret, loadWebhookSecret, resetAll, saveWebhookEvent, saveWebhookSecret } from './store'
 
@@ -86,9 +88,9 @@ function assertSameOrigin(req: Request) {
   if (req.method !== 'DELETE' && !(req.headers.get('content-type') ?? '').includes('application/json')) throw new HttpError(415, T('需要 JSON。', 'JSON required.'))
 }
 
-async function readBody(req: Request): Promise<Record<string, unknown>> {
+async function readBody(req: Request, limit = 10_000): Promise<Record<string, unknown>> {
   const text = await req.text()
-  if (text.length > 10_000) throw new HttpError(413, T('內容太大。', 'Request too large.'))
+  if (text.length > limit) throw new HttpError(413, T('內容太大。', 'Request too large.'))
   if (!text) return {}
   try {
     return JSON.parse(text) as Record<string, unknown>
@@ -252,6 +254,26 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
     },
 
     '/api/real/receipts': { GET: async () => buildReceipts(storage, await loadConfig(storage), lang) },
+
+    '/api/max/recon': { GET: async () => reconcile(storage, await loadConfig(storage), lang) },
+    '/api/max/import': {
+      POST: async (req) => {
+        const body = await readBody(req, 2_000_000)
+        const text = typeof body.text === 'string' ? body.text : ''
+        const fileName = (typeof body.fileName === 'string' ? body.fileName : 'max.csv').slice(0, 120)
+        if (!text.trim()) throw new HttpError(400, T('這個檔案是空的。', 'This file is empty.'))
+        try {
+          return await importMaxCsv(storage, fileName, text)
+        } catch (e) {
+          if (e instanceof LocalizedError) throw new HttpError(422, e.text)
+          throw e
+        }
+      },
+      DELETE: async () => {
+        await clearMax(storage)
+        return { ok: true }
+      },
+    },
 
     '/api/real/creator': {
       GET: async (): Promise<Creator> => {

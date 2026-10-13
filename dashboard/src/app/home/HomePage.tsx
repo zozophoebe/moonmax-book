@@ -6,7 +6,7 @@ import { addPaylink, clearMaxAddress, clearWebhookToken, getSetup, removePaylink
 import { Card, SectionError, SkeletonBar } from '../../components/atoms'
 import { FlowMap } from '../../components/setup/FlowMap'
 import { StepShell, type StepTone } from '../../components/setup/StepShell'
-import { CsvStep, MaxAddressStep, PaylinksStep, WalletsStep, WebhookStep } from '../../components/setup/Steps'
+import { MaxAddressStep, MaxImportStep, PaylinksStep, WalletsStep, WebhookStep } from '../../components/setup/Steps'
 import { DontsCard, FeesCard, MoonPayMapCard, PrivacyCard, WhereThingsAre } from '../../components/setup/SideCards'
 import { href } from '../router'
 import { useT, type T } from '../../i18n'
@@ -20,7 +20,7 @@ function doneMap(s: SetupState): Record<StepKey, boolean> {
     wallets: s.wallets.some((w) => w.readable),
     webhook: s.webhook.configured,
     max: s.maxDepositAddresses.some((a) => a.chain === 'solana'),
-    csv: false,
+    csv: s.maxImport.records > 0,
   }
 }
 
@@ -82,8 +82,8 @@ export function HomePage() {
 
   const tone = (k: StepKey): StepTone => {
     if (!done) return 'todo'
-    if (k === 'csv') return 'later'
     if (done[k]) return 'done'
+    if (k === 'csv') return 'optional'
     if (k === 'webhook') return 'recommended'
     return k === current ? 'current' : 'todo'
   }
@@ -159,8 +159,20 @@ export function HomePage() {
                 <MaxAddressStep setup={setup} busy={busy === 'max'} error={errors.max ?? null} onSave={(v) => run('max', () => saveMaxAddress(v))} onClear={() => run('max', clearMaxAddress)} />
               </StepShell>
 
-              <StepShell n={5} title={t('匯入 MAX 交易紀錄', 'Import MAX transactions')} summary={t('出金之後，把 MAX 的 CSV 匯進來對帳。', 'After cashing out, bring in the MAX CSV to reconcile.')} tone={tone('csv')} open={isOpen('csv')} onToggle={() => toggle('csv')}>
-                <CsvStep />
+              <StepShell
+                n={5}
+                title={t('匯入 MAX 紀錄，開始對帳', 'Import MAX records and reconcile')}
+                summary={
+                  setup.maxImport.records
+                    ? t(`已匯入 ${setup.maxImport.records} 筆 MAX 紀錄`, `${setup.maxImport.records} MAX record${setup.maxImport.records > 1 ? 's' : ''} imported`)
+                    : t('把 MAX 匯出的 CSV 放進來：對到你的收款、算匯率差，你另外轉進去的也會標出來。', 'Drop in MAX’s CSV: deposits are matched to your income with the exchange-rate difference, and anything extra you sent is marked.')
+                }
+                tone={tone('csv')}
+                minutes={3}
+                open={isOpen('csv')}
+                onToggle={() => toggle('csv')}
+              >
+                <MaxImportStep setup={setup} onChanged={() => run('csv', getSetup)} onUseAddress={(a) => run('max', () => saveMaxAddress(a))} />
               </StepShell>
 
               {!current ? (
@@ -218,7 +230,7 @@ function ProgressCard({ finished, total, ready }: { finished: number; total: num
           <span key={i} className={`h-1.5 rounded-full ${i < finished ? 'bg-primary' : 'bg-muted'}`} />
         ))}
       </div>
-      <p className="mt-2 text-[12px] text-fg-3">{ready && finished === total ? t('全部完成', 'All done') : t('第 3 步建議做、第 5 步開發中，不算在內', 'Step 3 is recommended and step 5 is coming soon — neither counts')}</p>
+      <p className="mt-2 text-[12px] text-fg-3">{ready && finished === total ? t('全部完成', 'All done') : t('第 3、5 步建議做，不算在必要步驟裡', 'Steps 3 and 5 are recommended but not required')}</p>
     </div>
   )
 }
