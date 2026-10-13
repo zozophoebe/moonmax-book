@@ -49,6 +49,17 @@ function GoogleMark() {
   )
 }
 
+function PolicyLink() {
+  const t = useT()
+  return (
+    <p className="mt-4 text-center text-[12.5px] text-fg-3">
+      <a href="/privacy.html" className="focus-ring rounded underline decoration-border-strong underline-offset-[3px] transition-colors hover:text-fg hover:decoration-primary">
+        {t('隱私權政策', 'Privacy policy')}
+      </a>
+    </p>
+  )
+}
+
 export function LoginPage({ configured }: { configured: boolean }) {
   return configured ? <GoogleLogin /> : <NotConfigured />
 }
@@ -106,6 +117,7 @@ function GoogleLogin() {
           {t('用 Google 登入', 'Sign in with Google')}
         </a>
       </div>
+      <PolicyLink />
     </Frame>
   )
 }

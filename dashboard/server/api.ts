@@ -3,7 +3,7 @@
 // No MoonPay API keys anywhere: payments are read from the public chain and labelled by webhooks.
 
 import type { Creator } from '../src/types/ledger'
-import { accountByUid, accountForLogin, hookPathFor, sessionBinding, workspacePrefix, type Account } from './accounts'
+import { accountByUid, accountForLogin, deleteAccount, hookPathFor, sessionBinding, workspacePrefix, type Account } from './accounts'
 import { clearedCookie, readSession, sessionCookie, verifySession } from './auth'
 import { authorizeUrl, clearedOauthCookie, exchangeCode, GoogleLoginError, newOauthState, oauthCookie, readOauthCookie, type GoogleConfig } from './google'
 import { cleanLabel, isSolanaAddress, loadConfig, normalizeUrl, parsePaylinkId, saveConfig } from './config'
@@ -183,8 +183,8 @@ const SAMPLE_READ_ONLY = T(
   'This is sample data and can’t be changed. Clear it with “Clear sample data” at the top of Get started, then add your own.',
 )
 
-// The signed-in account's own ledger (or, locally, the one ledger).
-function ledgerRoutes(ctx: ApiContext, ws: Workspace, lang: Lang): Routes {
+// The signed-in account's own ledger (or, locally, the one ledger, with account = null).
+function ledgerRoutes(ctx: ApiContext, ws: Workspace, lang: Lang, account: Account | null): Routes {
   const { storage, src } = ws
   const secure = ctx.runtime === 'vercel'
   const stateWith = async (sources: Sources) => setupState(storage, await loadConfig(storage), lang, sources, ws.hookPath)
@@ -198,10 +198,12 @@ function ledgerRoutes(ctx: ApiContext, ws: Workspace, lang: Lang): Routes {
     '/api/auth/logout': { POST: async () => reply({ ok: true }, { 'set-cookie': clearedCookie(secure) }) },
     '/api/setup': { GET: state },
 
-    // "Sign out and start over": empties this ledger. The account stays.
+    // Deployed: "Delete account and all data" — the ledger, then the account itself.
+    // Local: "Clear everything and start over".
     '/api/setup/reset': {
       POST: async () => {
         await clearWorkspace(storage)
+        if (account) await deleteAccount(ctx.storage, account)
         return reply(await stateWith(liveSources), { 'set-cookie': clearedCookie(secure) })
       },
     },
@@ -399,7 +401,8 @@ export async function handleApi(req: Request, ctx: ApiContext): Promise<Response
       // Deployed: everything else needs a Google session. No Google keys = closed.
       if (id.method === 'google' && !id.config) throw new HttpError(503, NOT_CONFIGURED, 'auth')
       if (id.method === 'google' && !id.account) throw new HttpError(401, T('請先登入。', 'Please sign in first.'), 'auth')
-      table = ledgerRoutes(ctx, await workspaceOf(ctx, id.method === 'google' ? id.account : null), lang)
+      const account = id.method === 'google' ? id.account : null
+      table = ledgerRoutes(ctx, await workspaceOf(ctx, account), lang, account)
     }
 
     const handler = table[pathname]?.[method]

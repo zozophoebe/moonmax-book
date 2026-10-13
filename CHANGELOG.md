@@ -4,7 +4,8 @@ This repository has used git since 2026-10-13. There was no version history befo
 
 ## 2026-10-13
 
-- **Open to everyone, one ledger each.** Anyone can sign in with Google and gets a private ledger with its own webhook URL; the previous owner keeps their existing data and webhook URL. "Sign out and start over" now empties your own ledger and keeps the account.
+- **Privacy policy.** A public, bilingual page at `/privacy.html` (needed to publish the Google sign-in app), linked from the sign-in page and the "Where your data lives" card. "Sign out and start over" became "Delete account and all data": it now deletes the account record too, not just the ledger.
+- **Open to everyone, one ledger each.** Anyone can sign in with Google and gets a private ledger with its own webhook URL; the previous owner keeps their existing data and webhook URL.
 - **Sample data.** An empty ledger can load a made-up one (three sites, nine payments, three transfers to MAX, two extra deposits) that runs through the real attribution and reconciliation code. It's read-only and can be cleared to start for real. Sample Pay Link names follow the page language.
 - **Transfers out are listed newest first** across all receiving wallets, instead of one wallet after another.
 - **English repository.** README, changelog and specs rewritten in English. The repository is now public. The pre-removal demo snapshot (`dashboard-with-demo-2026-10-13/`) is no longer tracked.

@@ -995,6 +995,10 @@ async function accountByUid(storage, uid) {
 	}
 	return UID.test(uid) ? storage.get(accountKey(uid)) : null;
 }
+async function deleteAccount(storage, account) {
+	if (account.uid === LEGACY_UID) return storage.del([OWNER_KEY]);
+	await storage.del([accountKey(account.uid), loginKey(account.sub)]);
+}
 var workspacePrefix = (uid) => uid === LEGACY_UID ? "" : `u/${uid}/`;
 var hookPathFor = (uid) => uid === LEGACY_UID ? HOOK_PATH : `${HOOK_PATH}/${uid}`;
 var sessionBinding = (a) => `google:${a.uid}:${a.sub}:${a.createdAt}`;
@@ -1651,7 +1655,7 @@ function publicRoutes(ctx, id) {
 	};
 }
 var SAMPLE_READ_ONLY = T("這是範例資料，不能修改。先在「開始使用」最上面按「清除範例資料」，再加入你自己的。", "This is sample data and can’t be changed. Clear it with “Clear sample data” at the top of Get started, then add your own.");
-function ledgerRoutes(ctx, ws, lang) {
+function ledgerRoutes(ctx, ws, lang, account) {
 	const { storage, src } = ws;
 	const secure = ctx.runtime === "vercel";
 	const stateWith = async (sources) => setupState(storage, await loadConfig(storage), lang, sources, ws.hookPath);
@@ -1664,6 +1668,7 @@ function ledgerRoutes(ctx, ws, lang) {
 		"/api/setup": { GET: state },
 		"/api/setup/reset": { POST: async () => {
 			await clearWorkspace(storage);
+			if (account) await deleteAccount(ctx.storage, account);
 			return reply(await stateWith(liveSources), { "set-cookie": clearedCookie(secure) });
 		} },
 		"/api/sample": {
@@ -1847,7 +1852,8 @@ async function handleApi(req, ctx) {
 		else {
 			if (id.method === "google" && !id.config) throw new HttpError(503, NOT_CONFIGURED, "auth");
 			if (id.method === "google" && !id.account) throw new HttpError(401, T("請先登入。", "Please sign in first."), "auth");
-			table = ledgerRoutes(ctx, await workspaceOf(ctx, id.method === "google" ? id.account : null), lang);
+			const account = id.method === "google" ? id.account : null;
+			table = ledgerRoutes(ctx, await workspaceOf(ctx, account), lang, account);
 		}
 		const handler = table[pathname]?.[method];
 		if (!handler) throw new HttpError(404, T(`沒有這個 API：${method} ${pathname}`, `No such API: ${method} ${pathname}`));

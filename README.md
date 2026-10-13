@@ -78,6 +78,8 @@ Each ledger's MoonPay webhook URL is shown in step 3 of Get started (`https://<y
 
 > **Why `api/index.js` is pre-bundled:** TypeScript 7 no longer ships the JavaScript API that Vercel uses to compile `.ts` functions, so `vite.api.config.ts` bundles the server into plain JavaScript first.
 
+Google's consent screen needs a home page (`https://<your-domain>`) and a privacy policy (`https://<your-domain>/privacy.html`, served from `dashboard/public/privacy.html`) before the app can be published.
+
 ## Known limits
 
 - **Base:** public RPC nodes don't serve historical log queries, so Base payments come from the webhook only and aren't read from chain.

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-show="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy · MoonMax Book</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+    <!-- Public on purpose: Google requires a privacy policy reachable without signing in. -->
+    <style>
+      :root {
+        --bg: #fafafa;
+        --card: #ffffff;
+        --muted: #f4f4f5;
+        --fg: #09090b;
+        --fg-2: #3f3f46;
+        --fg-3: #71717a;
+        --border: #e4e4e7;
+        --primary: #ffd21f;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg-2); font-family: "Geist", "Noto Sans TC", "PingFang TC", system-ui, sans-serif; line-height: 1.8; -webkit-font-smoothing: antialiased; }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 96px; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; border-radius: 8px; }
+      .brand span { color: var(--fg-3); font-weight: 500; }
+      .toggle { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--muted); }
+      .toggle button { font: inherit; font-size: 13px; line-height: 1; padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--fg-3); cursor: pointer; transition: transform 150ms cubic-bezier(0.34, 1.4, 0.64, 1); }
+      .toggle button:hover { color: var(--fg); }
+      .toggle button:active { transform: scale(0.96); }
+      .toggle button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgb(24 24 27 / 0.06); }
+      a:focus-visible, button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+      article { margin-top: 28px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 28px 20px; box-shadow: 0 1px 2px rgb(24 24 27 / 0.05), 0 1px 3px rgb(24 24 27 / 0.03); }
+      @media (min-width: 640px) { article { padding: 40px 44px; } }
+      h1 { margin: 0; color: var(--fg); font-size: 28px; line-height: 1.25; letter-spacing: -0.03em; }
+      .date { margin: 6px 0 0; color: var(--fg-3); font-size: 13px; }
+      h2 { margin: 32px 0 8px; color: var(--fg); font-size: 17px; letter-spacing: -0.01em; }
+      p, li { font-size: 15px; }
+      ul { padding-left: 1.2em; margin: 8px 0; }
+      li { margin: 6px 0; }
+      strong { color: var(--fg); font-weight: 600; }
+      code { font-family: "Geist Mono", ui-monospace, monospace; font-size: 0.88em; background: var(--muted); border-radius: 4px; padding: 1px 5px; }
+      a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--primary); text-decoration-thickness: 2px; text-underline-offset: 3px; border-radius: 3px; }
+      .back { display: inline-block; margin-top: 28px; font-size: 14px; font-weight: 500; }
+      [data-lang] { display: none; }
+      html[data-show="zh"] [data-lang="zh"], html[data-show="en"] [data-lang="en"] { display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <a class="brand" href="/">
+          <img src="/logo-mark.svg" width="30" height="30" alt="" />
+          MoonMax <span>Book</span>
+        </a>
+        <div class="toggle" role="group" aria-label="Language / 語言">
+          <button type="button" data-set="zh" aria-pressed="true">中文</button>
+          <button type="button" data-set="en" aria-pressed="false">English</button>
+        </div>
+      </header>
+
+      <article data-lang="zh" lang="zh-Hant-TW">
+        <h1>隱私權政策</h1>
+        <p class="date">生效日期：2026 年 10 月 13 日</p>
+
+        <p>MoonMax Book 是一個記帳工具：把你透過 MoonPay Commerce 收到的加密貨幣收款換算成台幣，再跟 MAX 交易所的入金紀錄對帳。我們不保管你的錢，不需要你的 MoonPay API 金鑰，也不會要你的 MAX 帳號密碼。這份政策說明我們存了哪些資料、為什麼存，以及怎麼刪除。</p>
+
+        <h2>我們存的資料</h2>
+        <ul>
+          <li><strong>Google 登入</strong>：你的 Google 帳號 ID 和 Email。我們只向 Google 要求 <code>openid</code> 和 <code>email</code> 兩項權限，不會讀取你的姓名、大頭照、聯絡人、Gmail 或其他任何 Google 資料。</li>
+          <li><strong>你輸入的設定</strong>：Pay Link ID、你為它取的名稱、網站網址、MAX 入金地址，以及 MoonPay 的 Webhook Secret。Secret 只用來確認通知真的是 MoonPay 送的，畫面上只顯示最後 4 碼。</li>
+          <li><strong>MoonPay 送來的付款通知</strong>：交易編號、MoonPay 交易 ID、Pay Link ID、鏈、幣別、金額、手續費、收款錢包地址和時間。通知裡如果有買家的 Email、姓名、地址或電話，收到時就丟掉，不會儲存。</li>
+          <li><strong>你匯入的 MAX 資金紀錄</strong>：每一列的日期、幣別、金額、交易編號和狀態，以及檔名。CSV 裡的其他欄位不會儲存。</li>
+          <li><strong>範例資料</strong>：如果你按了「載入範例資料」，那份編好的資料會存在你自己的帳本，可以隨時清除。</li>
+        </ul>
+        <p>每個帳號的資料分開存放，其他使用者看不到。</p>
+
+        <h2>我們從公開來源讀取的資料</h2>
+        <p>為了算出你的收款，伺服器會：</p>
+        <ul>
+          <li>用你的 Pay Link ID 向 MoonPay 的公開端點查詢付款連結的名稱、價格和收款錢包；</li>
+          <li>用收款錢包地址和交易編號，向 Solana 的公開節點讀取交易紀錄（這些本來就公開在區塊鏈上）；</li>
+          <li>從 jsDelivr 上的 currency-api 取得每天的美元兌台幣匯率。</li>
+        </ul>
+        <p>這些公開資料的快取由所有帳號共用，快取裡不會記錄是哪個帳號查的。</p>
+
+        <h2>Cookie 與瀏覽器儲存</h2>
+        <ul>
+          <li><code>mm_session</code>：保持登入，30 天後失效。網頁上的程式讀不到它（HttpOnly）。</li>
+          <li><code>mm_oauth</code>：只在 Google 登入的過程中使用，10 分鐘後失效。</li>
+          <li>瀏覽器的 <code>moonmax-lang</code>（localStorage）：記住你選的語言。</li>
+        </ul>
+        <p>我們不放廣告，也沒有使用任何分析或追蹤工具。</p>
+
+        <h2>誰會經手這些資料</h2>
+        <ul>
+          <li><strong>Vercel</strong>：網站主機和資料儲存。資料存在設為私人的 Vercel Blob，只有 MoonMax Book 的伺服器讀得到。Vercel 可能依它自己的政策保留連線紀錄，例如 IP 位址。</li>
+          <li><strong>Google</strong>：提供登入。網頁字型從 Google Fonts 載入，所以你的瀏覽器會連到 Google 的伺服器。</li>
+          <li><strong>上面列的公開來源</strong>（MoonPay、Solana 公開節點、jsDelivr）：只會收到查詢需要的 Pay Link ID、錢包地址或交易編號。</li>
+        </ul>
+        <p>我們不會出售你的資料，也不會把它用在廣告上。</p>
+
+        <h2>刪除你的資料</h2>
+        <p>在右上角的帳號選單按「刪除帳號和所有資料」，會立刻刪除你的帳本（設定、Webhook Secret、收到的通知、匯入的 MAX 紀錄）和你的帳號（Google 帳號 ID 和 Email），無法復原。共用的公開資料快取不含帳號資訊，會保留。</p>
+        <p>你也可以到 Google 帳戶的<a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">第三方應用程式和服務</a>頁面，移除 MoonMax Book 的存取權。</p>
+
+        <h2>安全</h2>
+        <p>資料存在私人儲存空間，只有伺服器讀得到；登入 cookie 有簽章；修改只接受從 MoonMax Book 自己的頁面送出。MoonMax Book 的<a href="https://github.com/zozophoebe/moonmax-book" target="_blank" rel="noreferrer">原始碼公開在 GitHub</a>，你可以自己檢查它怎麼處理資料。</p>
+
+        <h2>政策變更</h2>
+        <p>內容有變更時，會更新這一頁和上面的生效日期。</p>
+
+        <h2>聯絡我們</h2>
+        <p>有問題或要求，請到 <a href="https://github.com/zozophoebe/moonmax-book/issues" target="_blank" rel="noreferrer">GitHub 開 issue</a>。</p>
+
+        <a class="back" href="/">← 回到 MoonMax Book</a>
+      </article>
+
+      <article data-lang="en" lang="en">
+        <h1>Privacy Policy</h1>
+        <p class="date">Effective 13 October 2026</p>
+
+        <p>MoonMax Book is a bookkeeping tool. It values the crypto payments you receive through MoonPay Commerce in Taiwan dollars and reconciles them with your deposits on the MAX exchange. We never hold your money, never need your MoonPay API keys, and never ask for your MAX login. This policy explains what we store, why, and how to delete it.</p>
+
+        <h2>What we store</h2>
+        <ul>
+          <li><strong>Google sign-in</strong>: your Google account ID and email address. We ask Google only for the <code>openid</code> and <code>email</code> scopes, and never read your name, profile photo, contacts, Gmail or any other Google data.</li>
+          <li><strong>Settings you enter</strong>: Pay Link IDs, the names you give them, website addresses, your MAX deposit address and your MoonPay webhook Secret. The Secret is used only to confirm that a notification really came from MoonPay, and the page shows just its last 4 characters.</li>
+          <li><strong>Payment notifications from MoonPay</strong>: transaction ID, MoonPay transaction ID, Pay Link ID, chain, token, amount, fee, receiving wallet address and time. Any buyer email, name, address or phone number in a notification is discarded on arrival and never stored.</li>
+          <li><strong>MAX funds-history records you import</strong>: each row's date, currency, amount, transaction ID and status, plus the file name. Other columns in the CSV are not stored.</li>
+          <li><strong>Sample data</strong>: if you choose “Load sample data”, the made-up records are stored in your own ledger and can be cleared at any time.</li>
+        </ul>
+        <p>Each account's data is stored separately, and other users can't see it.</p>
+
+        <h2>What we read from public sources</h2>
+        <p>To work out your payments, the server:</p>
+        <ul>
+          <li>looks up each Pay Link's name, price and receiving wallets on MoonPay's public endpoint, using its Pay Link ID;</li>
+          <li>reads transactions from a public Solana node, using receiving wallet addresses and transaction IDs (all of which are already public on the blockchain);</li>
+          <li>gets daily USD/TWD exchange rates from currency-api on jsDelivr.</li>
+        </ul>
+        <p>Caches of this public data are shared by all accounts and don't record which account looked something up.</p>
+
+        <h2>Cookies and browser storage</h2>
+        <ul>
+          <li><code>mm_session</code> keeps you signed in and expires after 30 days. Scripts on the page can't read it (HttpOnly).</li>
+          <li><code>mm_oauth</code> is used only while you sign in with Google and expires after 10 minutes.</li>
+          <li><code>moonmax-lang</code> in your browser's localStorage remembers your language.</li>
+        </ul>
+        <p>There are no ads, and no analytics or tracking tools.</p>
+
+        <h2>Who handles this data</h2>
+        <ul>
+          <li><strong>Vercel</strong> hosts the site and stores the data, in a private Vercel Blob store that only MoonMax Book's server can read. Vercel may keep connection logs, such as IP addresses, under its own policies.</li>
+          <li><strong>Google</strong> provides sign-in. The page's fonts load from Google Fonts, so your browser connects to Google's servers.</li>
+          <li><strong>The public sources above</strong> (MoonPay, a public Solana node, jsDelivr) receive only the Pay Link ID, wallet address or transaction ID that a lookup needs.</li>
+        </ul>
+        <p>We don't sell your data or use it for advertising.</p>
+
+        <h2>Deleting your data</h2>
+        <p>Choose “Delete account and all data” in the account menu at the top right. It immediately deletes your ledger (settings, webhook Secret, notifications received, imported MAX records) and your account (Google account ID and email), and can't be undone. The shared caches of public data contain no account information and are kept.</p>
+        <p>You can also remove MoonMax Book's access on your Google Account's <a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">Third-party apps &amp; services</a> page.</p>
+
+        <h2>Security</h2>
+        <p>Data sits in private storage that only the server can read, sign-in cookies are signed, and changes are accepted only from MoonMax Book's own pages. MoonMax Book's <a href="https://github.com/zozophoebe/moonmax-book" target="_blank" rel="noreferrer">source code is public on GitHub</a>, so you can check how it handles data yourself.</p>
+
+        <h2>Changes to this policy</h2>
+        <p>When this policy changes, this page and the date above are updated.</p>
+
+        <h2>Contact</h2>
+        <p>For questions or requests, please <a href="https://github.com/zozophoebe/moonmax-book/issues" target="_blank" rel="noreferrer">open an issue on GitHub</a>.</p>
+
+        <a class="back" href="/">← Back to MoonMax Book</a>
+      </article>
+    </div>
+    <script>
+      // Same language choice as the app (localStorage "moonmax-lang"); ?lang=en also works for links.
+      ;(function () {
+        var root = document.documentElement
+        var fromUrl = new URLSearchParams(location.search).get('lang')
+        var saved = null
+        try { saved = localStorage.getItem('moonmax-lang') } catch (e) {}
+        function show(lang) {
+          root.setAttribute('data-show', lang)
+          root.setAttribute('lang', lang === 'en' ? 'en' : 'zh-Hant-TW')
+          document.title = lang === 'en' ? 'Privacy Policy · MoonMax Book' : '隱私權政策 · MoonMax Book'
+          document.querySelectorAll('[data-set]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-set') === lang)) })
+        }
+        show(fromUrl === 'en' || fromUrl === 'zh' ? fromUrl : saved === 'en' ? 'en' : 'zh')
+        document.querySelectorAll('[data-set]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var lang = b.getAttribute('data-set')
+            show(lang)
+            try { localStorage.setItem('moonmax-lang', lang) } catch (e) {}
+          })
+        })
+      })()
+    </script>
+  </body>
+</html>

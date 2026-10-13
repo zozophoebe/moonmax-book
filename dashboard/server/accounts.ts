@@ -3,7 +3,7 @@
 // the root of the store, so their settings and their webhook URL (/api/hook/moonpay) keep working.
 
 import { createHash, randomBytes } from 'node:crypto'
-import { loadOwner } from './google'
+import { loadOwner, OWNER_KEY } from './google'
 import { HOOK_PATH } from './ledger'
 import type { Storage } from './storage'
 
@@ -37,6 +37,13 @@ export async function accountByUid(storage: Storage, uid: string): Promise<Accou
     return owner ? { uid, sub: owner.sub, email: owner.email, createdAt: owner.claimedAt } : null
   }
   return UID.test(uid) ? storage.get<Account>(accountKey(uid)) : null
+}
+
+// "Delete account and all data": the ledger is emptied separately (clearWorkspace); this removes
+// the account itself, so signing in again starts a brand-new one.
+export async function deleteAccount(storage: Storage, account: Account): Promise<void> {
+  if (account.uid === LEGACY_UID) return storage.del([OWNER_KEY])
+  await storage.del([accountKey(account.uid), loginKey(account.sub)])
 }
 
 export const workspacePrefix = (uid: string) => (uid === LEGACY_UID ? '' : `u/${uid}/`)

@@ -104,7 +104,12 @@ export function PrivacyCard() {
           </li>
         ))}
       </ul>
-      <p className="mt-3 border-t border-border pt-3 text-[12.5px] leading-[1.65] text-fg-3">{t('沒有任何 MoonPay API 金鑰或 MAX 帳密。', 'No MoonPay API keys or MAX credentials anywhere.')}</p>
+      <p className="mt-3 border-t border-border pt-3 text-[12.5px] leading-[1.65] text-fg-3">
+        {t('沒有任何 MoonPay API 金鑰或 MAX 帳密。', 'No MoonPay API keys or MAX credentials anywhere.')}{' '}
+        <a href="/privacy.html" className="focus-ring rounded font-medium text-fg-2 underline decoration-primary decoration-2 underline-offset-[3px] hover:text-fg">
+          {t('隱私權政策', 'Privacy policy')}
+        </a>
+      </p>
     </SideCard>
   )
 }

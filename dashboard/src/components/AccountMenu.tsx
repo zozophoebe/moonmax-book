@@ -83,8 +83,8 @@ export function AccountMenu({ creator, auth }: { creator: Creator | null; auth: 
           {auth.method === 'google' ? <MenuItem Icon={LogOut} label={t('登出', 'Sign out')} hint={t('設定都會留著，下次登入繼續用', 'Your settings stay for next time')} disabled={busy} onSelect={signOutOnly} /> : null}
           <MenuItem
             Icon={RotateCcw}
-            label={t('登出並回到初始狀態', 'Sign out and start over')}
-            hint={auth.method === 'google' ? t('清空這個帳號的帳本，從第 1 步重新開始', 'Empties this account’s ledger; back to step 1') : t('清除所有設定，從第 1 步重新開始', 'Clears every setting; back to step 1')}
+            label={auth.method === 'google' ? t('刪除帳號和所有資料', 'Delete account and all data') : t('清除所有設定', 'Clear every setting')}
+            hint={auth.method === 'google' ? t('刪除這個帳號和帳本裡的一切，無法復原', 'Deletes this account and everything in its ledger. Can’t be undone') : t('清除所有設定，從第 1 步重新開始', 'Clears every setting; back to step 1')}
             tone="danger"
             disabled={busy}
             onSelect={() => {
@@ -152,11 +152,11 @@ function ResetDialog({ method, onCancel }: { method: AuthState['method']; onCanc
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="animate-rise w-full max-w-[440px] rounded-xl border border-border bg-card p-6 shadow-float">
         <p className="flex items-center gap-2 text-[16px] font-semibold" id={titleId}>
           <TriangleAlert className="size-5 text-danger" aria-hidden />
-          {t('登出並回到初始狀態？', 'Sign out and start over?')}
+          {method === 'google' ? t('刪除帳號和所有資料？', 'Delete your account and all data?') : t('清除所有設定？', 'Clear every setting?')}
         </p>
         <p className="mt-2 text-[13.5px] leading-[1.7] text-fg-2">
           {method === 'google'
-            ? t('MoonMax Book 會清除這個帳號存的這些東西。帳號還在，下次用同一個 Google 帳號登入會看到一本空的帳：', 'MoonMax Book will clear what this account has stored. The account stays — sign in with the same Google account and you’ll find an empty ledger:')
+            ? t('MoonMax Book 會立刻刪除下面這些，無法復原。之後用同一個 Google 帳號登入，會是一個全新的空帳本：', 'MoonMax Book will delete all of this right away, and it can’t be undone. Signing in again with the same Google account starts a brand-new, empty ledger:')
             : t('MoonMax Book 會清除自己存的這些東西，下次打開會回到第一次使用的樣子：', 'MoonMax Book will clear what it has stored, so next time it opens like the first time:')}
         </p>
         <ul className="mt-2 space-y-1 text-[13.5px] text-fg-2">
@@ -166,6 +166,7 @@ function ResetDialog({ method, onCancel }: { method: AuthState['method']; onCanc
             t('MAX 出金地址', 'Your MAX deposit address'),
             t('收到的 MoonPay 通知', 'MoonPay notifications received'),
             t('匯入的 MAX 紀錄', 'Imported MAX records'),
+            ...(method === 'google' ? [t('你的帳號（Google 帳號 ID 和 Email）', 'Your account (Google account ID and email)')] : []),
           ].map((item) => (
             <li key={item} className="flex gap-2">
               <span aria-hidden className="mt-[9px] size-1 shrink-0 rounded-full bg-danger" />
@@ -175,8 +176,8 @@ function ResetDialog({ method, onCancel }: { method: AuthState['method']; onCanc
         </ul>
         <p className="mt-3 rounded-lg bg-muted px-3 py-2.5 text-[12.5px] leading-[1.7] text-fg-3">
           {t(
-            'MoonPay 和 MAX 上的東西都不會動，鏈上的收款紀錄也還在，重新加回 Pay Link 就讀得到。MoonPay 後台的 Endpoint 不會被刪，清除後送來的通知會被拒收，重新設定 Secret 才會恢復。',
-            'Nothing on MoonPay or MAX changes, and your payments stay on the chain — add the Pay Links back and they show up again. The Endpoint in MoonPay isn’t deleted; notifications are refused until you set the Secret again.',
+            'MoonPay 和 MAX 上的東西都不會動，鏈上的收款紀錄也還在，重新加回 Pay Link 就讀得到。MoonPay 後台的 Endpoint 不會被刪，但之後送來的通知會被拒收；重新開始時第 3 步會給你新的 Webhook 網址和 Secret。',
+            'Nothing on MoonPay or MAX changes, and your payments stay on the chain — add the Pay Links back and they show up again. The Endpoint in MoonPay isn’t deleted, but its notifications are refused from now on; when you start again, step 3 gives you a new webhook URL and Secret.',
           )}
         </p>
         {error ? <p className="mt-3 text-[13px] text-danger-deep">{error}</p> : null}
@@ -186,7 +187,7 @@ function ResetDialog({ method, onCancel }: { method: AuthState['method']; onCanc
           </Button>
           <Button variant="danger" onClick={confirm} disabled={busy}>
             {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <RotateCcw className="size-4" aria-hidden />}
-            {method === 'none' ? t('清除，重新開始', 'Clear and start over') : t('清除並登出', 'Clear and sign out')}
+            {method === 'none' ? t('清除，重新開始', 'Clear and start over') : t('刪除並登出', 'Delete and sign out')}
           </Button>
         </div>
       </div>

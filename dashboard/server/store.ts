@@ -45,7 +45,7 @@ export async function loadWebhookEvents(storage: Storage): Promise<StoredWebhook
 export const saveWebhookEvent = (storage: Storage, event: StoredWebhookEvent) => storage.set(eventKey(event.transactionSignature), event)
 
 // Empties one ledger: settings, Secret, received events, imported MAX records and the sample marker.
-// The account itself stays, so signing in again opens the same, now empty, ledger.
+// (Deleting the account itself is accounts.ts → deleteAccount.)
 // ('auth.local' is a leftover from the earlier password login.) Shared public caches stay.
 export async function clearWorkspace(storage: Storage): Promise<void> {
   await storage.del(['config', SECRET_KEY, 'auth.local', 'max.funds', SAMPLE_KEY, ...(await storage.list('events/'))])

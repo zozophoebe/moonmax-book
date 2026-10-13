@@ -13,5 +13,5 @@ export const GOOGLE_START = '/api/auth/google/start'
 
 export const getAuth = () => getJson<AuthState>('/api/auth/me')
 export const logout = () => sendJson<{ ok: true }>('/api/auth/logout', 'POST', {})
-// Empties this account's ledger: Pay Links, webhook Secret, MAX address, notifications, MAX records.
+// Deployed: deletes this account and its ledger. Local: clears every setting.
 export const resetEverything = () => sendJson<SetupState>('/api/setup/reset', 'POST', {})
