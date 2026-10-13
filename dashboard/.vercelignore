@@ -1,0 +1,8 @@
+node_modules
+dist
+data
+.env*
+platform.config*.json
+tsconfig.tsbuildinfo
+client_secret_*.json
+*.local.json

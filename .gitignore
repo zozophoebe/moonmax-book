@@ -1,0 +1,16 @@
+# dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# secrets and per-machine data — never commit
+.env*
+*.local.json
+client_secret_*.json
+data/
+.vercel/
+
+# local settings (Pay Links, addresses) — recreated by the app
+platform.config*.json
+
+.DS_Store
