@@ -10,7 +10,7 @@ This is **not a blockchain-indexing problem to solve with better data.** It is t
 
 ## 3.2 Why this computation matters
 
-§02 already gives you the *income* number (value at receipt) — that's independent of this section entirely. This section exists because of the *second* tax event flagged earlier in this product's research: if the crypto's value moved between receipt and the eventual cashout/disposal, that difference is a separate gain-or-loss event (characterized earlier as the "財產交易所得" layer, distinct from ordinary income). Computing *that* number requires knowing, for the specific units being disposed of, what their cost basis was — and cost basis is only knowable through a chosen matching convention.
+§02 already gives you the *income* number (value at receipt) — that's independent of this section entirely. This section exists because of the *second* tax event flagged earlier in this product's research: if the crypto's value moved between receipt and the eventual cashout/disposal, that difference is a separate gain-or-loss event (characterized earlier as the "property transaction income" layer, distinct from ordinary income). Computing *that* number requires knowing, for the specific units being disposed of, what their cost basis was — and cost basis is only knowable through a chosen matching convention.
 
 ## 3.3 The convention: FIFO
 
@@ -21,7 +21,7 @@ Why FIFO specifically, and not LIFO or specific-identification:
 - It is the most commonly defaulted-to convention in the absence of specific identification, across jurisdictions generally.
 - It is deterministic and auditable from the ledger's own data alone.
 
-**Document this choice visibly in any report this system produces** (§04) — label it explicitly as "FIFO 先進先出法" or similar, because an accountant reviewing the output needs to know a convention was applied, not assume it's a cryptographically-derived fact. If official Taiwan guidance on crypto cost-basis methodology solidifies in a way that prefers a different convention, this is the one piece of this system that may need to be recomputed retroactively — isolate the matching logic so that's a re-run, not a rewrite.
+**Document this choice visibly in any report this system produces** (§04) — label it explicitly as "FIFO (first in, first out)" or similar, in the report's own language, because an accountant reviewing the output needs to know a convention was applied, not assume it's a cryptographically-derived fact. If official Taiwan guidance on crypto cost-basis methodology solidifies in a way that prefers a different convention, this is the one piece of this system that may need to be recomputed retroactively — isolate the matching logic so that's a re-run, not a rewrite.
 
 ## 3.4 Data structure: the lot queue
 

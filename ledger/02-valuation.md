@@ -20,7 +20,7 @@ For `twd_per_usd`: this is the part that needs a real, citable, historical sourc
 
 **[VERIFY before building]** — options, roughly in order of how defensible they are for this use case:
 
-1. **台灣中央銀行 (Central Bank of the ROC) published daily reference rate.** Most defensible if a creator's accountant ever asks "where did this number come from" — it's the rate a Taiwan tax authority context would expect. Confirm current publication format/access method (historical lookup, not just today's rate) before committing.
+1. **Daily reference rate published by Taiwan's central bank (Central Bank of the Republic of China (Taiwan)).** Most defensible if a creator's accountant ever asks "where did this number come from" — it's the rate a Taiwan tax authority context would expect. Confirm current publication format/access method (historical lookup, not just today's rate) before committing.
 2. A commercial FX data API with historical daily rates (confirm licensing covers this use case — redistributing rates inside a product sometimes has different terms than looking one up for personal reference).
 3. An on-chain/crypto price oracle's USD/TWD cross rate, if one with adequate historical depth exists — treat as a fallback, not the primary source, since its provenance is less obviously "official" than a central bank rate if ever questioned.
 

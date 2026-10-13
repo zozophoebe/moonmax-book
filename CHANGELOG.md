@@ -1,31 +1,32 @@
-# 更新紀錄
+# Changelog
 
-這個 repo 從 2026-10-13 開始用 git。之前的開發沒有版本紀錄，下面「之前」的幾段是依開發過程整理的里程碑；之後每個大功能各自一個 commit。
+This repository has used git since 2026-10-13. There was no version history before that, so the earlier sections are milestones pieced together from the development notes. From here on, each major feature gets its own commit.
 
 ## 2026-10-13
 
-- **MAX 出金對帳**：開始使用第 5 步可以上傳 MAX 的資金紀錄 CSV（一次多個、重複的自動略過；zip 會提醒先解壓縮）。每筆入金用交易編號回鏈上找來源：從收款錢包轉進去的 USDC 用先進先出對到 MoonPay 收入，算出收到時和入金當天的台幣與匯率差；不是 MoonPay 收入的（SOL、別的錢包轉的、鏈上查不到的、比收入多的部分）標成「額外轉入」，不算進收入。收款紀錄頁新增「出金對帳（MAX）」逐筆明細；MAX 紀錄裡看得到的入金地址可以一鍵設成 MAX 入金地址。同一筆交易裡的 USDC 和 SOL 分開算，不會被當成重複。
-- **分頁小圖示換成新 logo**：加上 PNG 版（Safari 不吃 SVG 圖示）和 apple-touch-icon，網址加 `?v=2` 讓瀏覽器丟掉舊快取。
-- **新 logo**：像素月亮——白色滿月的右半溶解成棋盤格。
-- **中英切換**：所有畫面、說明文件、伺服器錯誤訊息都有中文與英文，選擇會記住。
-- **說明文件重寫**：「誰適合用」改成大圖卡片＋icon、抽成比較（US$19 的外掛在 MoonPay／Patreon／Gumroad 各拿到多少）、用 Frame → Lottie 當實例的 7 步流程；每篇自動產生目錄。
-- **拿掉串接檢查頁**。
-- **只用 Google 登入**：部署版只能用擁有者的 Google 帳號登入，第一個登入的帳號綁成擁有者；沒設 Google 金鑰時整站關閉。
-- **部署到 Vercel**：同一份 API 在本機跑在 Vite、部署時是 Vercel Function；資料存在私人 Vercel Blob。
-- **拿掉示範帳本**：nav、`/demo/`、假資料全部移除；完整副本保留在 `dashboard-with-demo-2026-10-13/`。
-- **收款來源判斷修正**：只有一個 Pay Link 時的「推測」也要金額對得上售價，避免把別的 Pay Link 的收款算錯。
-- **讀取 USDT**：Solana 上的 USDC 和 USDT 都讀；收到 USDT 會標「MAX 可能不收」。
+- **English repository.** README, changelog and specs rewritten in English. The repository is now public. The pre-removal demo snapshot (`dashboard-with-demo-2026-10-13/`) is no longer tracked.
+- **MAX cash-out reconciliation.** Step 5 of Get started takes MAX funds-history CSVs. You can upload several at once, duplicates are skipped, and a zip file gets a reminder to unzip it first. Each deposit is traced on chain by its transaction ID. USDC from a receiving wallet is matched first-in, first-out against MoonPay income, with its TWD value when received, on the deposit day, and the exchange-rate difference. Anything that isn't MoonPay income is flagged as an extra transfer and kept out of income: SOL, transfers from other wallets, deposits not found on chain, or more than the income so far. The Receipts page gets a per-deposit "Cash-out reconciliation (MAX)" card, and a deposit address seen in the MAX records can be saved as your MAX address in one click. When MAX lists USDC and SOL from the same transaction, they count as separate rows rather than duplicates.
+- **Browser tab icon uses the new logo.** Added PNG versions (Safari ignores SVG icons) and an apple-touch-icon. The links carry `?v=2` so browsers drop the old cached icon.
+- **New logo.** A pixel moon: a white full moon whose right half dissolves into a checkerboard.
+- **Chinese / English toggle.** Every screen, guide and server error message is available in both languages, and the choice is remembered.
+- **Guides rewritten.** "Who it's for" now uses large cards with icons. A fee comparison shows how much of a US$19 plugin sale you keep on MoonPay, Patreon and Gumroad. A 7-step walkthrough uses Frame → Lottie as a real example. Each article gets an automatic table of contents.
+- **Removed the integration check page.**
+- **Google sign-in only.** The deployed site accepts only the owner's Google account, and the first account to sign in becomes the owner. Without Google keys configured, the whole site stays closed.
+- **Deployed to Vercel.** The same API runs inside Vite locally and as a Vercel Function when deployed. Data lives in a private Vercel Blob store.
+- **Removed the demo ledger.** The nav entry, `/demo/` and all mock data are gone. A full copy was kept locally.
+- **Fixed payment attribution.** When a wallet has a single Pay Link, the guess now also requires the amount to match its price, so payments from other Pay Links aren't counted against it.
+- **Reads USDT.** Both USDC and USDT on Solana are read. USDT receipts are labelled "MAX may not accept".
 
-## 之前：2026-10-12
+## Earlier: 2026-10-12
 
-- **不拿 API 金鑰（B＋C）**：收款從公開的區塊鏈讀收款錢包，MoonPay webhook 只用來標出 Pay Link；webhook 驗證 Bearer＋HMAC，買家個資收到就丟。
-- **多網站收款紀錄**：一個網站一個 Pay Link，收款紀錄依來源分頁、各自小計，台幣價值依收到當天匯率。
-- **改名 MoonMax Book**、第一版 logo；開始使用改成從空狀態一步一步串接；示範帳本分到 `/demo/`。
+- **No API keys.** Payments are read from the receiving wallets on the public blockchain. The MoonPay webhook is used only to tag each payment with its Pay Link. Webhooks are verified with a Bearer token and an HMAC signature, and buyer details are discarded on arrival.
+- **Receipts for several websites.** One Pay Link per website. Receipts are split into tabs by source with their own subtotals, and TWD values use the rate on the day each payment arrived.
+- **Renamed to MoonMax Book.** Added the first logo. Get started now walks through the setup from an empty state. The demo ledger moved to `/demo/`.
 
-## 之前：2026-10-11
+## Earlier: 2026-10-11
 
-- 白灰色 shadcn 風格＋黃色主色重新設計；偵測真實的 MoonPay 付款連結；說明文件三篇。
+- Redesigned in a white-and-grey shadcn style with a yellow accent. The app detects real MoonPay payment links. Added three guides.
 
-## 之前：2026-10-08
+## Earlier: 2026-10-08
 
-- 產品規格（`SPEC.md`、`ledger/`、`FRONTEND_FIRST.md`）；前端先行的對帳本畫面，後端先用假資料。
+- Product spec (`SPEC.md`, `ledger/`, `FRONTEND_FIRST.md`). A frontend-first ledger UI, with mock data standing in for the backend.

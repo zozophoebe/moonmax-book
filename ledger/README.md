@@ -18,7 +18,7 @@ This product produces that record. It does not file taxes, does not give tax adv
 General crypto tax software (Koinly, CoinTracker, et al.) already exists, is mature, and already solves cost-basis/capital-gains computation generically across many exchanges and wallets. **Do not rebuild that.** It does not, however, target this specific combination:
 
 - It is built for **traders** (buy low, sell high, track cost basis across trades). It is not built around **income received as payment for services/content**, where the first tax event is receipt-at-fair-value, not a trade.
-- It has no specific knowledge of **MAX** as a Taiwan-licensed off-ramp, nor of the Taiwan-specific reporting conventions this product's users need (NT$500k bank reporting threshold vs. actual income tax, the 750萬 basic-income-tax threshold for overseas income, etc. — established in prior research this session).
+- It has no specific knowledge of **MAX** as a Taiwan-licensed off-ramp, nor of the Taiwan-specific reporting conventions this product's users need (NT$500k bank reporting threshold vs. actual income tax, the NT$7.5 million basic income tax threshold for overseas income, etc. — established in prior research this session).
 - It is not localized for a non-crypto-native Taiwan creator who thinks of this as "money I got paid," not "a trading portfolio."
 
 The product is deliberately small: **two data sources in, one reconciled ledger out.** Resist scope creep back toward "a payment platform."

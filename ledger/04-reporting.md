@@ -19,11 +19,11 @@ Produce a structured export (CSV at minimum; a formatted PDF summary is a reason
 - Every cashout event: date, token amount, TWD received, and its matched lot consumptions with each one's cost basis and resulting gain/loss.
 - Any unreconciled disposals, flagged as such.
 
-This is the artifact a creator hands to an accountant. Make that handoff explicit in the product's copy: label the export "供會計師/記帳士使用的對帳紀錄," not "你的報稅結果" — the distinction matters for what this product is allowed to imply about itself (§0 in README.md).
+This is the artifact a creator hands to an accountant. Make that handoff explicit in the product's copy: label the export "Reconciliation records for your accountant or bookkeeper," not "Your tax result" — the distinction matters for what this product is allowed to imply about itself (§0 in README.md).
 
 ## 4.3 What this screen must never say
 
-Never phrase anything as "you owe NT$X" or "your tax is NT$X." This system produces income and realized-gain figures; it does not compute a final tax liability (that depends on the creator's total income across all sources, applicable brackets, deductions, and — per earlier research this session — whether a given figure falls under domestic or overseas income treatment, which affects whether it's folded into 綜合所得稅 or assessed under the 基本所得稅/AMT regime above the ~NT$7.5M threshold). Stating a liability figure would be giving tax advice this product is not positioned to give. State the inputs; let the creator or their accountant derive the liability.
+Never phrase anything as "you owe NT$X" or "your tax is NT$X." This system produces income and realized-gain figures; it does not compute a final tax liability (that depends on the creator's total income across all sources, applicable brackets, deductions, and — per earlier research this session — whether a given figure falls under domestic or overseas income treatment, which affects whether it's folded into consolidated income tax or assessed under the basic income tax (AMT) regime above the ~NT$7.5M threshold). Stating a liability figure would be giving tax advice this product is not positioned to give. State the inputs; let the creator or their accountant derive the liability.
 
 ## 4.4 Audit trail requirement
 

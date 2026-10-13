@@ -14,3 +14,6 @@ data/
 platform.config*.json
 
 .DS_Store
+
+# local snapshot of the app before the demo was removed (Chinese-only, kept off GitHub)
+dashboard-with-demo-2026-10-13/

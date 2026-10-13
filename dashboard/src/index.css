@@ -98,7 +98,7 @@
   }
 }
 
-/* Long-form docs (說明文件). */
+/* Long-form guides (the Docs pages). */
 @layer components {
   .doc {
     color: var(--color-fg-2);

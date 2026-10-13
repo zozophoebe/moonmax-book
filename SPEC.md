@@ -1,5 +1,7 @@
 # TW Creator Pay — Technical Prototype Spec
 
+> **Name note:** "TW Creator Pay" was the working name. The product shipped as **MoonMax Book**, a bookkeeping and reconciliation tool rather than a payment platform. See [README.md](README.md) for what it does today; §4 and §9 below are kept up to date.
+
 > Status: draft, for prototype scoping. Items marked **[VERIFY]** are unconfirmed as of this writing and must be checked against live docs/APIs before being treated as fact — do not ship on an unverified assumption below.
 >
 > **Revision note:** §2–4 originally spec'd building the collection layer directly on `@solana/pay` (Solana-only). That was superseded once multi-chain support (Base, etc.) became a stated requirement — see the comparison made at that decision point: raw Solana Pay has no path to other chains, while MoonPay Commerce (Helio) already supports Solana, Base, Ethereum, and others behind one integration. §2–4 below are rewritten to reflect that. If you still see Solana-Pay-specific implementation detail anywhere below, it's a leftover that should be corrected the same way — flag it rather than trust it.
@@ -9,7 +11,7 @@
 These three decisions were made deliberately earlier in scoping. Do not relax them without re-deriving the reasoning:
 
 1. **Platform never custodies funds.** All payments settle wallet-to-wallet (payer → creator's own wallet). The backend only *observes* chain state; it never holds a private key or signs a transfer on a user's behalf.
-2. **Platform never holds a user's exchange (MAX) credentials or API keys.** Off-ramp is a guided hand-off (deep link + prefilled deposit address), not a programmatic withdrawal executed by the platform. This keeps the product further from Taiwan's incoming VASP licensing scope (虛擬資產服務法, sub-regulations not yet finalized as of this writing).
+2. **Platform never holds a user's exchange (MAX) credentials or API keys.** Off-ramp is a guided hand-off (deep link + prefilled deposit address), not a programmatic withdrawal executed by the platform. This keeps the product further from Taiwan's incoming VASP licensing scope (the Virtual Asset Service Act; its sub-regulations were not yet finalized as of this writing).
 3. **Platform never holds a creator's MoonPay Commerce API secret** (added 2026-10-12, §4). Income is read from the public chain and labelled by MoonPay webhooks; the only MoonPay credential stored is a webhook `sharedToken`, which can verify notifications but cannot read or change the account.
 4. **Two independent flows, not one unified "escrow" mechanic**:
    - **Flow A — Invoice/Payment Request** (known-client, freelance relationship): no locking, no escrow. Reusable payment link per creator, optionally per-project.

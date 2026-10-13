@@ -1,59 +1,90 @@
 # MoonMax Book
 
-給台灣創作者的加密貨幣收款對帳本。海外買家用 MoonPay Commerce 付 USDC → 錢直接進你的錢包 → 轉到 MAX 換成台幣 → MoonMax Book 把每筆收款換算成收到當天的台幣、依網站分開列，年底交給會計師。
+Bookkeeping for Taiwanese creators who get paid in crypto.
 
-Bookkeeping for Taiwanese creators paid in crypto: payments through MoonPay Commerce, cash-outs through the MAX exchange, every receipt valued in TWD on the day it arrived.
+A buyer pays in USDC through MoonPay Commerce, and the money goes straight into the creator's own wallet. The creator later moves it to the MAX exchange and sells it for Taiwan dollars. MoonMax Book follows that path. It values every payment in TWD on the day it arrived and lists sales separately for each website. It also matches the creator's MAX deposits back to that income, so they have clean records to hand to an accountant at tax time.
 
-**線上版：** https://moonmax-book.vercel.app （只有擁有者的 Google 帳號能登入）
+**Live:** https://moonmax-book.vercel.app (only the owner's Google account can sign in)
 
-## 主要功能
+## How it works
+
+```
+Buyer ──USDC──▶ creator's wallet (Solana) ──USDC──▶ MAX ──sell──▶ TWD in the bank
+                  │                                   │
+                  │ read from the public chain        │ funds-history CSV
+                  ▼                                   ▼
+             MoonMax Book: each receipt in TWD  ◀── matched first-in, first-out
+                  ▲
+                  │ MoonPay webhook: which Pay Link (website) the payment came from
+```
+
+- **No API keys.** Payments are read from the public blockchain, using the receiving wallets listed on each public Pay Link. MoonPay's webhook only says which Pay Link a payment belongs to. Nobody's MoonPay secret key or MAX login is ever stored.
+- **TWD at receipt.** Each payment is valued as the amount the buyer paid × that day's USD/TWD rate, with MoonPay's fee shown separately.
+- **Cash-out reconciliation.** Upload MAX's funds-history CSV. Each deposit is looked up on chain by its transaction ID. USDC sent from a receiving wallet is matched oldest-first against MoonPay income, which gives its TWD value when received, its value on the deposit day, and the exchange-rate difference. Anything else is flagged as an *extra transfer* and kept out of income: SOL, coins from other wallets, deposits not found on chain, or more USDC than has been earned.
+
+## Features
 
 | | |
 |---|---|
-| **不需要 API 金鑰** | 收款直接從公開的區塊鏈讀收款錢包（Solana USDC／USDT）；MoonPay 的 webhook 只用來標出每筆屬於哪個 Pay Link。不存任何人的 MoonPay Secret Key 或 MAX 帳密。 |
-| **多網站分開列** | 一個網站／商品一個 Pay Link，收款紀錄依來源分頁，各自有筆數、手續費、實收、台幣小計。 |
-| **開始使用 5 步** | 加入 Pay Link → 確認收款錢包 → 設定 webhook → MAX 入金地址 → 匯入 MAX CSV。每一步寫清楚去 MoonPay／MAX 哪裡找。 |
-| **MAX 出金對帳** | 上傳 MAX 的資金紀錄 CSV，每筆入金用交易編號回鏈上核對：從收款錢包轉進去的 USDC 用先進先出對到 MoonPay 收入，列出收到時與入金當天的台幣和匯率差；自己另外轉進去的（SOL、別的錢包、比收入多的部分）標成「額外轉入」。 |
-| **台幣價值** | 買家付的金額 × 收到當天的 USD/TWD；手續費另列。 |
-| **Google 登入** | 部署版只用 Google 登入；第一個登入的帳號成為擁有者。沒設 Google 金鑰時整站關閉。 |
-| **中英切換** | 介面、說明文件、伺服器訊息都有中文與英文。 |
-| **說明文件** | 誰適合用（含 Frame → Lottie 實例與抽成比較）、MoonPay 設定、出金教學。 |
+| **Several websites, one ledger** | One Pay Link per website or product. Receipts are grouped by source, each with its own count, fees, net amount and TWD subtotal. |
+| **Get started in 5 steps** | Add Pay Links → check receiving wallets → set up the webhook → add your MAX deposit address → import MAX CSVs. Each step says exactly where to find things in MoonPay and MAX. |
+| **Google sign-in** | The deployed site uses Google sign-in only. The first account to sign in becomes the owner. Without Google keys configured, the site stays closed. |
+| **Chinese and English** | The interface, guides and server messages come in both languages. Traditional Chinese is the default. |
+| **Guides** | Who this is for (with a real example and a fee comparison against Patreon and Gumroad), setting up MoonPay Commerce, and cashing out through MAX. |
 
-## 結構
+## Repository
 
 ```
-SPEC.md               產品與技術規格（§4 收款資料來源、§9 待決事項）
-FRONTEND_FIRST.md     前端先行的分層與合約
-ledger/               收款、估值、對帳、報表、資料模型的細部規格
-dashboard/            MoonMax Book 本體（Vite + React 19 + TypeScript + Tailwind 4）
-  server/             API：本機跑在 Vite dev server，部署時打包成 Vercel Function
-  api/index.js        由 npm run build:api 產生的 Vercel Function（要一起 commit）
-  src/                前端
-dashboard-with-demo-2026-10-13/   拿掉示範帳本之前的完整副本（含假資料與 /demo/）
+README.md, CHANGELOG.md
+SPEC.md               Early technical spec (written under the working name "TW Creator Pay")
+FRONTEND_FIRST.md     Frontend-first layering and service contracts
+ledger/               Detailed specs: ingestion, valuation, reconciliation, reporting, data model
+dashboard/            The app (Vite 8, React 19, TypeScript 7, Tailwind CSS 4)
+  server/             API: runs inside the Vite dev server locally, bundled into a Vercel Function when deployed
+  api/index.js        The bundled Vercel Function, built by `npm run build:api` (commit it)
+  src/                Frontend
 ```
 
-## 本機開發
+Interface text sits next to where it's used, as `t('中文', 'English')` pairs, so both languages are edited together.
+
+## Run it locally
 
 ```bash
 cd dashboard
 npm install
-npm run dev          # http://localhost:5173 ，本機不用登入，資料存在 platform.config.json 和 data/
+npm run dev          # http://localhost:5173 — no sign-in on localhost
 ```
 
-## 部署（Vercel）
+Local settings go in `platform.config.json` and `data/`. Both are gitignored.
+
+## Deploy to Vercel
 
 ```bash
 cd dashboard
-npm run build        # 型別檢查 + 網站 + api/index.js
+npm run build        # type check + site + api/index.js
 npx vercel deploy --prod
 ```
 
-需要的環境變數（都設成 Sensitive）：`MOONMAX_SESSION_SECRET`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`，以及連接私人 Blob store 後自動產生的 `BLOB_READ_WRITE_TOKEN`。
+Environment variables (mark them Sensitive):
 
-> 為什麼 `api/index.js` 要先打包：TypeScript 7 已經沒有 Vercel 編譯 `.ts` Function 用的 JS API，所以先用 `vite.api.config.ts` 打包成純 JavaScript。
+| Variable | What it's for |
+|---|---|
+| `MOONMAX_SESSION_SECRET` | Signs the sign-in session cookie |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client. Redirect URI: `https://<your-domain>/api/auth/google/callback` |
+| `BLOB_READ_WRITE_TOKEN` | Created automatically when you connect a private Vercel Blob store |
 
-## 這不是稅務或法律建議
+The MoonPay webhook URL is `https://<your-domain>/api/hook/moonpay`.
 
-MoonMax Book 只整理紀錄。怎麼申報，請和處理過加密貨幣案件的會計師或記帳士確認。
+> **Why `api/index.js` is pre-bundled:** TypeScript 7 no longer ships the JavaScript API that Vercel uses to compile `.ts` functions, so `vite.api.config.ts` bundles the server into plain JavaScript first.
 
-更新紀錄見 [CHANGELOG.md](CHANGELOG.md)。
+## Known limits
+
+- **Base:** public RPC nodes don't serve historical log queries, so Base payments come from the webhook only and aren't read from chain.
+- **Exchange rates:** daily reference rates from [currency-api](https://github.com/fawazahmed0/exchange-api) for now; the plan is to switch to an official Taiwanese source.
+- **Sale prices:** MAX's funds history has no sale prices, so the exchange-rate difference uses the deposit-day rate as an estimate until trade history can be imported.
+
+## Not tax or legal advice
+
+MoonMax Book only organises records. Ask an accountant who has handled crypto income how to report it.
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed and when.
