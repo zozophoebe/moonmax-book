@@ -307,7 +307,7 @@ function PaylinkCard({ entry, busy, onUpdate, onRemove }: { entry: PaylinkEntry;
         />
       ) : (
         <div className="mt-2.5 flex flex-wrap gap-1 pl-5">
-          {pl ? (
+          {pl?.hostedUrl ? (
             <a
               href={pl.hostedUrl}
               target="_blank"
@@ -709,7 +709,7 @@ export function MaxImportStep({ setup, onChanged, onUseAddress }: { setup: Setup
   const [recon] = useResource(getRecon, [setup.maxImport.records, setup.paylinks.length])
 
   const handle = async (files: File[]) => {
-    if (!files.length) return
+    if (!files.length || setup.sample) return
     setBusy(true)
     const out: { name: string; ok: boolean; text: string }[] = []
     for (const f of files) {

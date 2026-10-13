@@ -1,7 +1,6 @@
 // Data that is not configuration: the webhook Secret, received webhook events and caches.
 // Locally under dashboard/data/ (gitignored, owner-only); on Vercel in the private Blob store.
 
-import { OWNER_KEY } from './google'
 import type { Storage } from './storage'
 
 // ---------- webhook Secret ----------
@@ -14,8 +13,8 @@ type WebhookSecret = { sharedToken: string; savedAt: string }
 const SECRET_KEY = 'webhook.local'
 
 export const loadWebhookSecret = (storage: Storage) => storage.get<WebhookSecret>(SECRET_KEY)
-export const saveWebhookSecret = (storage: Storage, sharedToken: string) =>
-  storage.set(SECRET_KEY, { sharedToken, savedAt: new Date().toISOString() } satisfies WebhookSecret)
+export const saveWebhookSecret = (storage: Storage, sharedToken: string, savedAt = new Date().toISOString()) =>
+  storage.set(SECRET_KEY, { sharedToken, savedAt } satisfies WebhookSecret)
 export const clearWebhookSecret = (storage: Storage) => storage.del([SECRET_KEY])
 
 // ---------- webhook events ----------
@@ -45,11 +44,15 @@ export async function loadWebhookEvents(storage: Storage): Promise<StoredWebhook
 
 export const saveWebhookEvent = (storage: Storage, event: StoredWebhookEvent) => storage.set(eventKey(event.transactionSignature), event)
 
-// "Sign out and start over": settings, Secret, received events, imported MAX records and the Google owner.
-// ('auth.local' is a leftover from the earlier password login.) Public caches stay.
-export async function resetAll(storage: Storage): Promise<void> {
-  await storage.del(['config', SECRET_KEY, OWNER_KEY, 'auth.local', 'max.funds', ...(await storage.list('events/'))])
+// Empties one ledger: settings, Secret, received events, imported MAX records and the sample marker.
+// The account itself stays, so signing in again opens the same, now empty, ledger.
+// ('auth.local' is a leftover from the earlier password login.) Shared public caches stay.
+export async function clearWorkspace(storage: Storage): Promise<void> {
+  await storage.del(['config', SECRET_KEY, 'auth.local', 'max.funds', SAMPLE_KEY, ...(await storage.list('events/'))])
 }
+
+export const SAMPLE_KEY = 'sample'
+export const isSampleWorkspace = async (storage: Storage) => Boolean(await storage.get(SAMPLE_KEY))
 
 // ---------- caches (public data, safe to delete) ----------
 

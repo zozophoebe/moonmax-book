@@ -6,7 +6,6 @@ import { LogoMark, Wordmark } from '../components/Logo'
 
 const googleError = (t: T, code: string) =>
   ({
-    not_owner: t('這個 Google 帳號不是這個 MoonMax Book 的擁有者。換成擁有者的帳號再試一次。', 'This Google account isn’t the owner of this MoonMax Book. Try again with the owner’s account.'),
     denied: t('你取消了 Google 登入。', 'You cancelled Google sign-in.'),
     unverified: t('這個 Google 帳號的 Email 還沒驗證，沒辦法用來登入。', 'This Google account’s email isn’t verified, so it can’t be used to sign in.'),
   })[code] ?? t('Google 登入沒有完成，再試一次。', 'Google sign-in didn’t finish. Try again.')
@@ -65,8 +64,8 @@ function NotConfigured() {
         </p>
         <p className="mt-1 text-[13px] leading-[1.7] text-fg-3">
           {t(
-            '這個 MoonMax Book 只能用擁有者的 Google 帳號登入，但 Google 登入還沒接上，所以先關著，不會顯示任何資料。擁有者把 Google 金鑰設定到 Vercel、重新部署之後就能登入。',
-            'This MoonMax Book only lets its owner in with Google, and Google sign-in isn’t connected yet — so it stays closed and shows nothing. It opens once the owner adds the Google keys to Vercel and redeploys.',
+            '這個 MoonMax Book 要用 Google 登入，但 Google 登入還沒接上，所以先關著，不會顯示任何資料。網站管理者把 Google 金鑰設定到 Vercel、重新部署之後就能登入。',
+            'This MoonMax Book uses Google sign-in, which isn’t connected yet — so it stays closed and shows nothing. It opens once whoever runs the site adds the Google keys to Vercel and redeploys.',
           )}
         </p>
       </div>
@@ -87,7 +86,10 @@ function GoogleLogin() {
           {t('登入', 'Sign in')}
         </p>
         <p className="mt-1 text-[13px] leading-[1.7] text-fg-3">
-          {t('這是你自己的 MoonMax Book。用你的 Google 帳號登入，不用另外記密碼。', 'This is your own MoonMax Book. Sign in with your Google account — no extra password to remember.')}
+          {t(
+            '用 Google 帳號登入就能開始，不用另外記密碼。每個帳號有自己的帳本，別人看不到你的資料。還沒有 MoonPay 或 MAX 帳號，也可以先載入範例資料看看。',
+            'Sign in with your Google account to start — no extra password. Every account gets its own ledger that nobody else can see. No MoonPay or MAX account yet? You can load sample data and look around.',
+          )}
         </p>
         {error ? (
           <p role="alert" className="mt-3 flex items-start gap-1.5 rounded-lg bg-danger-soft px-3 py-2 text-[13px] leading-[1.6] text-danger-deep">

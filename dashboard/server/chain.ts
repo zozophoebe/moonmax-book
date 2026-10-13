@@ -152,3 +152,31 @@ export async function readSolanaWallet(storage: Storage, wallet: string): Promis
 }
 
 export const solscanTx = (signature: string) => `https://solscan.io/tx/${signature}`
+
+// ---------- chain lookup for deposits we don't already know ----------
+
+export type PayerCache = Record<string, { payer: string | null } | null>
+
+export async function payersOf(storage: Storage, txids: string[]): Promise<PayerCache> {
+  const cache = await loadCache<PayerCache>(storage, 'solana-payer', {})
+  let changed = false
+  for (const sig of txids) {
+    if (cache[sig] !== undefined) continue
+    try {
+      const res = await fetchWithTimeout(RPC, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTransaction', params: [sig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] }),
+      })
+      const body = (await res.json()) as { result?: { transaction: { message: { accountKeys: { pubkey: string; signer?: boolean }[] } } } | null }
+      const keys = body.result?.transaction.message.accountKeys ?? []
+      if (!body.result) continue // not found (other chain, or not final yet): ask again next time
+      cache[sig] = { payer: keys.find((k) => k.signer)?.pubkey ?? keys[0]?.pubkey ?? null }
+      changed = true
+    } catch {
+      // Network trouble: leave it for next time.
+    }
+  }
+  if (changed) await saveCache(storage, 'solana-payer', cache)
+  return cache
+}

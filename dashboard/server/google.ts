@@ -1,7 +1,8 @@
 // "Sign in with Google" for the deployed site (OpenID Connect, authorization-code flow).
-// Needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. The first Google account to sign in becomes
-// the owner (stored as 'owner.local'); every later sign-in must be that same account.
-// Keeping the Google app in "Testing" with only the owner as a test user adds a second lock.
+// Needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Any Google account can sign in and gets its own
+// ledger (server/accounts.ts). The Google app must be published ("In production"); in "Testing"
+// only its listed test users can sign in. 'owner.local' is the owner of the earlier single-owner
+// version, who keeps the root ledger.
 
 import { randomBytes } from 'node:crypto'
 import { fetchWithTimeout } from './http'
@@ -12,9 +13,6 @@ export type Owner = { sub: string; email: string; claimedAt: string }
 
 export const OWNER_KEY = 'owner.local'
 export const loadOwner = (storage: Storage) => storage.get<Owner>(OWNER_KEY)
-export const saveOwner = (storage: Storage, owner: Owner) => storage.set(OWNER_KEY, owner)
-// Sessions are bound to the owner record: resetting it signs everyone out.
-export const ownerBinding = (o: Owner) => `google:${o.sub}:${o.claimedAt}`
 
 const OAUTH_COOKIE = 'mm_oauth'
 const ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com'])

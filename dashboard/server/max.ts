@@ -10,13 +10,11 @@
 
 import type { ExtraKind, MaxImportResult, ReconLot, ReconRow, ReconView } from '../src/types/max'
 import type { PlatformConfig } from './config'
-import { ratesFor } from './fx'
-import { fetchWithTimeout } from './http'
 import { LocalizedError, T, type Lang } from './i18n'
 import { buildReceipts } from './ledger'
 import { tokenString, toUnits } from './money'
 import type { Storage } from './storage'
-import { loadCache, saveCache } from './store'
+import type { Sources } from './sources'
 
 const KEY = 'max.funds'
 const DECIMALS = 6
@@ -27,6 +25,9 @@ type MaxStore = { records: MaxRecord[]; files: { name: string; rows: number; imp
 
 const loadStore = async (storage: Storage): Promise<MaxStore> => (await storage.get<MaxStore>(KEY)) ?? { records: [], files: [] }
 export const clearMax = (storage: Storage) => storage.del([KEY])
+// The sample ledger's records (server/sample.ts), as if one CSV had been imported.
+export const seedMaxRecords = (storage: Storage, fileName: string, records: Omit<MaxRecord, 'file'>[]) =>
+  storage.set(KEY, { records: records.map((r) => ({ ...r, file: fileName })), files: [{ name: fileName, rows: records.length, importedAt: new Date().toISOString() }] } satisfies MaxStore)
 export const maxTxids = async (storage: Storage) => new Set((await loadStore(storage)).records.map((r) => r.txid))
 // One transaction can carry several rows (USDC plus a little SOL), so a row is its Txid + coin + amount.
 const recordKey = (r: Pick<MaxRecord, 'txid' | 'currency' | 'amount'>) => `${r.txid}|${r.currency}|${r.amount}`
@@ -127,34 +128,6 @@ export async function importMaxCsv(storage: Storage, fileName: string, text: str
   return { added, duplicates, skipped, total: store.records.length }
 }
 
-// ---------- chain lookup for deposits we don't already know ----------
-
-type PayerCache = Record<string, { payer: string | null } | null>
-
-async function payersOf(storage: Storage, txids: string[]): Promise<PayerCache> {
-  const cache = await loadCache<PayerCache>(storage, 'solana-payer', {})
-  let changed = false
-  for (const sig of txids) {
-    if (cache[sig] !== undefined) continue
-    try {
-      const res = await fetchWithTimeout('https://api.mainnet-beta.solana.com', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTransaction', params: [sig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] }),
-      })
-      const body = (await res.json()) as { result?: { transaction: { message: { accountKeys: { pubkey: string; signer?: boolean }[] } } } | null }
-      const keys = body.result?.transaction.message.accountKeys ?? []
-      if (!body.result) continue // not found (other chain, or not final yet): ask again next time
-      cache[sig] = { payer: keys.find((k) => k.signer)?.pubkey ?? keys[0]?.pubkey ?? null }
-      changed = true
-    } catch {
-      // Network trouble: leave it for next time.
-    }
-  }
-  if (changed) await saveCache(storage, 'solana-payer', cache)
-  return cache
-}
-
 // ---------- reconciliation ----------
 
 const RATE_DP = 4n
@@ -175,9 +148,9 @@ const twd = (cents: bigint) => {
 
 type Lot = { receiptId: string; receivedAt: string; sourceKey: string; token: string; left: bigint; qty: bigint; costCents: bigint; rate: string }
 
-export async function reconcile(storage: Storage, config: PlatformConfig, lang: Lang): Promise<ReconView> {
+export async function reconcile(storage: Storage, config: PlatformConfig, lang: Lang, src: Sources): Promise<ReconView> {
   const store = await loadStore(storage)
-  const view = await buildReceipts(storage, config, lang)
+  const view = await buildReceipts(storage, config, lang, src)
   const receiving = new Set(view.wallets.map((w) => w.address))
   const outgoing = new Map(view.outgoing.map((o) => [o.id, o]))
 
@@ -191,8 +164,8 @@ export async function reconcile(storage: Storage, config: PlatformConfig, lang: 
 
   const records = [...store.records].sort((a, b) => a.at.localeCompare(b.at))
   const unknown = [...new Set(records.filter((d) => !outgoing.has(d.txid)).map((d) => d.txid))]
-  const payers = unknown.length ? await payersOf(storage, unknown) : {}
-  const rates = await ratesFor(storage, records.map((d) => d.at))
+  const payers = unknown.length ? await src.payers(storage, unknown) : {}
+  const rates = await src.rates(storage, records.map((d) => d.at))
 
   const rows: ReconRow[] = []
   let costTotal = 0n
@@ -217,6 +190,7 @@ export async function reconcile(storage: Storage, config: PlatformConfig, lang: 
     const row: ReconRow = {
       id: recordKey(d),
       txid: d.txid,
+      explorerUrl: from === 'not-found' ? '' : src.explorer(d.txid),
       at: d.at,
       currency: d.currency,
       amount: d.amount,
@@ -305,5 +279,6 @@ export async function reconcile(storage: Storage, config: PlatformConfig, lang: 
     remainingIncome: remaining,
     detectedMaxAddresses: [...detected],
     maxAddressSet: config.maxDepositAddresses.some((a) => a.chain === 'solana'),
+    sample: src.sample,
   }
 }

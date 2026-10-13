@@ -10,3 +10,6 @@ export const saveWebhookToken = (sharedToken: string) => sendJson<SetupState>('/
 export const clearWebhookToken = () => sendJson<SetupState>('/api/setup/webhook', 'DELETE')
 export const saveMaxAddress = (address: string) => sendJson<SetupState>('/api/setup/max-address', 'POST', { address })
 export const clearMaxAddress = () => sendJson<SetupState>('/api/setup/max-address', 'DELETE')
+// A made-up ledger to look around with (empty ledgers only); read-only until cleared.
+export const loadSampleData = () => sendJson<SetupState>('/api/sample', 'POST', {})
+export const clearSampleData = () => sendJson<SetupState>('/api/sample', 'DELETE')

@@ -4,7 +4,7 @@ Bookkeeping for Taiwanese creators who get paid in crypto.
 
 A buyer pays in USDC through MoonPay Commerce, and the money goes straight into the creator's own wallet. The creator later moves it to the MAX exchange and sells it for Taiwan dollars. MoonMax Book follows that path. It values every payment in TWD on the day it arrived and lists sales separately for each website. It also matches the creator's MAX deposits back to that income, so they have clean records to hand to an accountant at tax time.
 
-**Live:** https://moonmax-book.vercel.app (only the owner's Google account can sign in)
+**Live:** https://moonmax-book.vercel.app — sign in with any Google account to get your own ledger. No MoonPay or MAX account? Load the sample data from Get started.
 
 ## How it works
 
@@ -28,7 +28,8 @@ Buyer ──USDC──▶ creator's wallet (Solana) ──USDC──▶ MAX ─�
 |---|---|
 | **Several websites, one ledger** | One Pay Link per website or product. Receipts are grouped by source, each with its own count, fees, net amount and TWD subtotal. |
 | **Get started in 5 steps** | Add Pay Links → check receiving wallets → set up the webhook → add your MAX deposit address → import MAX CSVs. Each step says exactly where to find things in MoonPay and MAX. |
-| **Google sign-in** | The deployed site uses Google sign-in only. The first account to sign in becomes the owner. Without Google keys configured, the site stays closed. |
+| **Google sign-in, one ledger each** | Anyone can sign in with Google. Every account gets its own ledger and its own webhook URL, and nobody else can see it. Without Google keys configured, the site stays closed. |
+| **Sample data** | An empty ledger can load a made-up one: three sites, nine payments, three transfers to MAX and two extra deposits. It runs through the same attribution and reconciliation code, is read-only, and can be cleared to start for real. |
 | **Chinese and English** | The interface, guides and server messages come in both languages. Traditional Chinese is the default. |
 | **Guides** | Who this is for (with a real example and a fee comparison against Patreon and Gumroad), setting up MoonPay Commerce, and cashing out through MAX. |
 
@@ -70,10 +71,10 @@ Environment variables (mark them Sensitive):
 | Variable | What it's for |
 |---|---|
 | `MOONMAX_SESSION_SECRET` | Signs the sign-in session cookie |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client. Redirect URI: `https://<your-domain>/api/auth/google/callback` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client. Redirect URI: `https://<your-domain>/api/auth/google/callback`. Publish the app (Audience → In production) so any Google account can sign in. |
 | `BLOB_READ_WRITE_TOKEN` | Created automatically when you connect a private Vercel Blob store |
 
-The MoonPay webhook URL is `https://<your-domain>/api/hook/moonpay`.
+Each ledger's MoonPay webhook URL is shown in step 3 of Get started (`https://<your-domain>/api/hook/moonpay/<id>`).
 
 > **Why `api/index.js` is pre-bundled:** TypeScript 7 no longer ships the JavaScript API that Vercel uses to compile `.ts` functions, so `vite.api.config.ts` bundles the server into plain JavaScript first.
 

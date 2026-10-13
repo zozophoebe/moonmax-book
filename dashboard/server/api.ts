@@ -3,20 +3,23 @@
 // No MoonPay API keys anywhere: payments are read from the public chain and labelled by webhooks.
 
 import type { Creator } from '../src/types/ledger'
-import { clearedCookie, sessionCookie, verifySession } from './auth'
-import { authorizeUrl, clearedOauthCookie, exchangeCode, GoogleLoginError, loadOwner, newOauthState, oauthCookie, ownerBinding, readOauthCookie, saveOwner, type GoogleConfig, type Owner } from './google'
+import { accountByUid, accountForLogin, hookPathFor, sessionBinding, workspacePrefix, type Account } from './accounts'
+import { clearedCookie, readSession, sessionCookie, verifySession } from './auth'
+import { authorizeUrl, clearedOauthCookie, exchangeCode, GoogleLoginError, newOauthState, oauthCookie, readOauthCookie, type GoogleConfig } from './google'
 import { cleanLabel, isSolanaAddress, loadConfig, normalizeUrl, parsePaylinkId, saveConfig } from './config'
 import { fetchWithTimeout } from './http'
 import { langOf, pick, T, type Lang, type Text } from './i18n'
 import { buildReceipts, HOOK_PATH, setupState } from './ledger'
 import { extractWebhookEvent, fetchPublicPaylink, PaylinkNotFound, verifyWebhook } from './moonpay'
-import { clearMax, importMaxCsv, reconcile } from './max'
+import { loadSample, sampleSources } from './sample'
+import { liveSources, type Sources } from './sources'
+import { clearMax, importMaxCsv, maxTxids, reconcile } from './max'
 import { LocalizedError } from './i18n'
-import type { Storage } from './storage'
-import { clearWebhookSecret, loadWebhookSecret, resetAll, saveWebhookEvent, saveWebhookSecret } from './store'
+import { scopedStorage, type Storage } from './storage'
+import { clearWebhookSecret, clearWorkspace, isSampleWorkspace, loadWebhookEvents, loadWebhookSecret, saveWebhookEvent, saveWebhookSecret } from './store'
 
 export type ApiContext = {
-  storage: Storage
+  storage: Storage // the whole store; each account's ledger is a scoped part of it
   runtime: 'local' | 'vercel'
   // Deployed: the cookie-signing key (MOONMAX_SESSION_SECRET). Local dev: null — no login,
   // only localhost can reach it.
@@ -25,13 +28,24 @@ export type ApiContext = {
   google?: GoogleConfig | null
 }
 
-// Who owns the deployed site right now; sessions are signed against it.
-type Identity = { method: 'none' } | { method: 'google'; config: GoogleConfig | null; owner: Owner | null; binding: string | null }
+// Who is asking. Local dev has no sign-in; deployed, anyone can sign in with Google and gets
+// their own ledger (server/accounts.ts).
+type Identity = { method: 'none' } | { method: 'google'; config: GoogleConfig | null; account: Account | null }
 
-async function identityOf(ctx: ApiContext): Promise<Identity> {
+async function identityOf(req: Request, ctx: ApiContext): Promise<Identity> {
   if (!ctx.auth) return { method: 'none' }
-  const owner = await loadOwner(ctx.storage)
-  return { method: 'google', config: ctx.google ?? null, owner, binding: owner ? ownerBinding(owner) : null }
+  const session = readSession(req.headers.get('cookie'))
+  const account = session ? await accountByUid(ctx.storage, session.uid) : null
+  const valid = Boolean(session && account && verifySession(session, ctx.auth.sessionSecret, sessionBinding(account)))
+  return { method: 'google', config: ctx.google ?? null, account: valid ? account : null }
+}
+
+// The ledger a request works on: its storage, its webhook URL, and where outside data comes from.
+type Workspace = { storage: Storage; hookPath: string; src: Sources }
+
+async function workspaceOf(ctx: ApiContext, account: Account | null): Promise<Workspace> {
+  const storage = account ? scopedStorage(ctx.storage, workspacePrefix(account.uid)) : ctx.storage
+  return { storage, hookPath: account ? hookPathFor(account.uid) : HOOK_PATH, src: (await isSampleWorkspace(storage)) ? sampleSources : liveSources }
 }
 
 const NOT_CONFIGURED = T('這個 MoonMax Book 還沒接上 Google 登入，所以先關著。', 'This MoonMax Book is not connected to Google sign-in yet, so it stays closed.')
@@ -113,21 +127,20 @@ async function checkSite(input: unknown): Promise<string | null> {
   return url
 }
 
-function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Partial<Record<Method, Handler>>> {
-  const { storage } = ctx
-  const secure = ctx.runtime === 'vercel'
-  const state = async () => setupState(storage, await loadConfig(storage), lang)
-  const signedIn = (req: Request) => Boolean(ctx.auth && id.method === 'google' && id.binding && verifySession(req.headers.get('cookie'), ctx.auth.sessionSecret, id.binding))
+type Routes = Record<string, Partial<Record<Method, Handler>>>
 
+// Reachable without signing in.
+function publicRoutes(ctx: ApiContext, id: Identity): Routes {
+  const secure = ctx.runtime === 'vercel'
   return {
     '/api/auth/me': {
-      GET: async (req) => {
-        const authenticated = id.method === 'none' || signedIn(req)
+      GET: async () => {
+        const authenticated = id.method === 'none' || id.account !== null
         return {
           method: id.method,
           configured: id.method === 'none' || id.config !== null,
           authenticated,
-          ownerEmail: authenticated && id.method === 'google' ? (id.owner?.email ?? null) : null,
+          email: id.method === 'google' ? (id.account?.email ?? null) : null,
         }
       },
     },
@@ -157,30 +170,62 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
         } catch (e) {
           return fail(e instanceof GoogleLoginError ? e.code : 'exchange')
         }
-        let owner = id.owner
-        // The first Google account to sign in claims the site.
-        if (!owner) {
-          owner = { sub: who.sub, email: who.email, claimedAt: new Date().toISOString() }
-          await saveOwner(storage, owner)
-        }
-        if (owner.sub !== who.sub) return fail('not_owner')
-        return redirect('/#/', [clearedOauthCookie(secure), sessionCookie(ctx.auth.sessionSecret, ownerBinding(owner), secure)])
+        // Every Google account gets its own ledger; the first sign-in creates it.
+        const account = await accountForLogin(ctx.storage, who)
+        return redirect('/#/', [clearedOauthCookie(secure), sessionCookie(ctx.auth.sessionSecret, account.uid, sessionBinding(account), secure)])
       },
     },
+  }
+}
 
+const SAMPLE_READ_ONLY = T(
+  '這是範例資料，不能修改。先在「開始使用」最上面按「清除範例資料」，再加入你自己的。',
+  'This is sample data and can’t be changed. Clear it with “Clear sample data” at the top of Get started, then add your own.',
+)
+
+// The signed-in account's own ledger (or, locally, the one ledger).
+function ledgerRoutes(ctx: ApiContext, ws: Workspace, lang: Lang): Routes {
+  const { storage, src } = ws
+  const secure = ctx.runtime === 'vercel'
+  const stateWith = async (sources: Sources) => setupState(storage, await loadConfig(storage), lang, sources, ws.hookPath)
+  const state = () => stateWith(src)
+  // The sample ledger is read-only: clear it before adding real settings.
+  const writable = () => {
+    if (src.sample) throw new HttpError(409, SAMPLE_READ_ONLY)
+  }
+
+  return {
     '/api/auth/logout': { POST: async () => reply({ ok: true }, { 'set-cookie': clearedCookie(secure) }) },
     '/api/setup': { GET: state },
 
-    // "Sign out and start over": settings, webhook Secret, events — and the Google owner.
+    // "Sign out and start over": empties this ledger. The account stays.
     '/api/setup/reset': {
       POST: async () => {
-        await resetAll(storage)
-        return reply(await state(), { 'set-cookie': clearedCookie(secure) })
+        await clearWorkspace(storage)
+        return reply(await stateWith(liveSources), { 'set-cookie': clearedCookie(secure) })
+      },
+    },
+
+    // A made-up ledger for people without MoonPay or MAX accounts (server/sample.ts).
+    '/api/sample': {
+      POST: async () => {
+        if (src.sample) return state()
+        const config = await loadConfig(storage)
+        const empty = !config.paylinks.length && !config.maxDepositAddresses.length && !(await loadWebhookSecret(storage)) && !(await loadWebhookEvents(storage)).length && !(await maxTxids(storage)).size
+        if (!empty) throw new HttpError(409, T('範例資料只能放進空的帳本，這本已經有你自己的設定了。', 'Sample data can only go into an empty ledger, and this one already has your settings.'))
+        await loadSample(storage, lang)
+        return stateWith(sampleSources)
+      },
+      DELETE: async () => {
+        if (!src.sample) throw new HttpError(409, T('這本帳不是範例資料，沒有東西要清除。', 'This ledger isn’t sample data, so there’s nothing to clear.'))
+        await clearWorkspace(storage)
+        return stateWith(liveSources)
       },
     },
 
     '/api/setup/paylinks': {
       POST: async (req) => {
+        writable()
         const body = await readBody(req)
         const id = parsePaylinkId(String(body.input ?? ''))
         if (!id) throw new HttpError(400, T('看不到 Pay Link ID。它是 24 個英文字母和數字，通常在付款網址 moonpay.hel.io/pay/ 的後面。', 'No Pay Link ID found. It is 24 letters and digits, usually after moonpay.hel.io/pay/ in the payment address.'))
@@ -195,9 +240,10 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
         const siteUrl = await checkSite(body.siteUrl)
         config.paylinks.push({ id, label: cleanLabel(body.label), siteUrl, addedAt: new Date().toISOString() })
         await saveConfig(storage, config)
-        return setupState(storage, config, lang)
+        return state()
       },
       PATCH: async (req) => {
+        writable()
         const body = await readBody(req)
         const config = await loadConfig(storage)
         const p = config.paylinks.find((x) => x.id === body.id)
@@ -205,19 +251,21 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
         if ('label' in body) p.label = cleanLabel(body.label)
         if ('siteUrl' in body) p.siteUrl = await checkSite(body.siteUrl)
         await saveConfig(storage, config)
-        return setupState(storage, config, lang)
+        return state()
       },
       DELETE: async (req, q) => {
+        writable()
         const id = String((await readBody(req)).id ?? q.get('id') ?? '')
         const config = await loadConfig(storage)
         config.paylinks = config.paylinks.filter((p) => p.id !== id)
         await saveConfig(storage, config)
-        return setupState(storage, config, lang)
+        return state()
       },
     },
 
     '/api/setup/webhook': {
       POST: async (req) => {
+        writable()
         const token = String((await readBody(req)).sharedToken ?? '').trim()
         if (token.length < 16 || /\s/.test(token) || token.includes('*')) {
           throw new HttpError(400, T('這不像完整的 Secret。到 MoonPay 的 Add Endpoint 表單，按 Secret 欄位右邊的複製鈕再貼一次（畫面上顯示的 ***** 是遮住的部分，要用複製鈕才拿得到完整的）。', 'That doesn’t look like a complete Secret. In MoonPay’s Add Endpoint form, use the copy button next to the Secret field (the ***** part on screen is hidden — only the copy button gives you all of it).'))
@@ -226,6 +274,7 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
         return state()
       },
       DELETE: async () => {
+        writable()
         await clearWebhookSecret(storage)
         return state()
       },
@@ -233,6 +282,7 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
 
     '/api/setup/max-address': {
       POST: async (req) => {
+        writable()
         const address = String((await readBody(req)).address ?? '').trim()
         if (!isSolanaAddress(address)) {
           throw new HttpError(400, T('這不像 Solana 地址。Solana 地址是 32–44 個字元，不會有 0、O、I、l，也不會是 0x 開頭（0x 開頭的是 Ethereum／Base 地址）。', 'That doesn’t look like a Solana address. Solana addresses are 32–44 characters, never contain 0, O, I or l, and never start with 0x (those are Ethereum/Base addresses).'))
@@ -243,21 +293,23 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
           { chain: 'solana', token: 'USDC', address, addedAt: new Date().toISOString() },
         ]
         await saveConfig(storage, config)
-        return setupState(storage, config, lang)
+        return state()
       },
       DELETE: async () => {
+        writable()
         const config = await loadConfig(storage)
         config.maxDepositAddresses = config.maxDepositAddresses.filter((a) => a.chain !== 'solana')
         await saveConfig(storage, config)
-        return setupState(storage, config, lang)
+        return state()
       },
     },
 
-    '/api/real/receipts': { GET: async () => buildReceipts(storage, await loadConfig(storage), lang) },
+    '/api/real/receipts': { GET: async () => buildReceipts(storage, await loadConfig(storage), lang, src) },
 
-    '/api/max/recon': { GET: async () => reconcile(storage, await loadConfig(storage), lang) },
+    '/api/max/recon': { GET: async () => reconcile(storage, await loadConfig(storage), lang, src) },
     '/api/max/import': {
       POST: async (req) => {
+        writable()
         const body = await readBody(req, 2_000_000)
         const text = typeof body.text === 'string' ? body.text : ''
         const fileName = (typeof body.fileName === 'string' ? body.fileName : 'max.csv').slice(0, 120)
@@ -270,6 +322,7 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
         }
       },
       DELETE: async () => {
+        writable()
         await clearMax(storage)
         return { ok: true }
       },
@@ -279,15 +332,15 @@ function routes(ctx: ApiContext, id: Identity, lang: Lang): Record<string, Parti
       GET: async (): Promise<Creator> => {
         const config = await loadConfig(storage)
         const first = config.paylinks[0]
-        let company: string | undefined
+        let company: string | null = null
         if (first) {
           try {
-            company = (await fetchPublicPaylink(first.id)).company?.name
+            company = await src.companyName(first.id)
           } catch {
-            company = undefined
+            company = null
           }
         }
-        return { id: 'real', companyName: company ?? null, sourceCount: config.paylinks.length }
+        return { id: 'real', companyName: company, sourceCount: config.paylinks.length }
       },
     },
   }
@@ -312,7 +365,17 @@ async function handleHook(req: Request, storage: Storage): Promise<unknown> {
   return { ok: true, stored: Boolean(event) }
 }
 
-const PUBLIC_PATHS = new Set(['/api/auth/me', '/api/auth/google/start', '/api/auth/google/callback', HOOK_PATH])
+const PUBLIC_PATHS = new Set(['/api/auth/me', '/api/auth/google/start', '/api/auth/google/callback'])
+
+// MoonPay posts to /api/hook/moonpay/<uid> (one URL per ledger), or /api/hook/moonpay for the
+// root ledger (local dev, and the owner of the earlier single-owner version).
+async function hookStorage(ctx: ApiContext, pathname: string): Promise<Storage> {
+  const uid = pathname.slice(HOOK_PATH.length + 1)
+  if (!uid) return ctx.storage
+  const account = ctx.auth ? await accountByUid(ctx.storage, uid) : null
+  if (!account) throw new HttpError(404, 'Unknown webhook endpoint')
+  return scopedStorage(ctx.storage, workspacePrefix(account.uid))
+}
 
 export async function handleApi(req: Request, ctx: ApiContext): Promise<Response> {
   const url = new URL(req.url)
@@ -323,19 +386,23 @@ export async function handleApi(req: Request, ctx: ApiContext): Promise<Response
   const lang = langOf(req)
 
   try {
-    if (pathname === HOOK_PATH) return json(200, await handleHook(req, ctx.storage))
+    if (pathname === HOOK_PATH || pathname.startsWith(`${HOOK_PATH}/`)) return json(200, await handleHook(req, await hookStorage(ctx, pathname)))
 
     if (ctx.runtime === 'vercel' && !ctx.auth) {
       throw new HttpError(503, T('這個部署少了 MOONMAX_SESSION_SECRET 環境變數，所以先全部關閉。', 'This deployment is missing the MOONMAX_SESSION_SECRET environment variable, so everything is closed.'))
     }
-    const id = await identityOf(ctx)
-    // Deployed: every non-public route needs the owner's Google session. No keys = closed.
-    if (ctx.auth && id.method === 'google' && !PUBLIC_PATHS.has(pathname)) {
-      if (!id.config) throw new HttpError(503, NOT_CONFIGURED, 'auth')
-      if (!id.binding || !verifySession(req.headers.get('cookie'), ctx.auth.sessionSecret, id.binding)) throw new HttpError(401, T('請先登入。', 'Please sign in first.'), 'auth')
+    const id = await identityOf(req, ctx)
+    let table: Routes
+    if (PUBLIC_PATHS.has(pathname)) {
+      table = publicRoutes(ctx, id)
+    } else {
+      // Deployed: everything else needs a Google session. No Google keys = closed.
+      if (id.method === 'google' && !id.config) throw new HttpError(503, NOT_CONFIGURED, 'auth')
+      if (id.method === 'google' && !id.account) throw new HttpError(401, T('請先登入。', 'Please sign in first.'), 'auth')
+      table = ledgerRoutes(ctx, await workspaceOf(ctx, id.method === 'google' ? id.account : null), lang)
     }
 
-    const handler = routes(ctx, id, lang)[pathname]?.[method]
+    const handler = table[pathname]?.[method]
     if (!handler) throw new HttpError(404, T(`沒有這個 API：${method} ${pathname}`, `No such API: ${method} ${pathname}`))
     if (method !== 'GET') assertSameOrigin(req)
     const out = await handler(req, url.searchParams)

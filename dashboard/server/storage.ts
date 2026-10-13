@@ -52,6 +52,21 @@ export function fileStorage(root: string): Storage {
   }
 }
 
+// One account's own space inside the shared store: its keys live under `prefix`.
+// Caches of public data ("*.cache": chain reads, exchange rates) stay shared by everyone.
+export function scopedStorage(root: Storage, prefix: string): Storage {
+  if (!prefix) return root
+  const keyOf = (key: string) => (key.endsWith('.cache') ? key : `${prefix}${key}`)
+  return {
+    get<T>(key: string) {
+      return root.get<T>(keyOf(key))
+    },
+    set: (key, value) => root.set(keyOf(key), value),
+    del: (keys) => root.del(keys.map(keyOf)),
+    list: async (p) => (await root.list(`${prefix}${p}`)).map((key) => key.slice(prefix.length)),
+  }
+}
+
 const BLOB_PREFIX = 'moonmax/'
 
 export function blobStorage(): Storage {

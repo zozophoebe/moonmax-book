@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, ArrowUpRight, CircleCheck, ExternalLink, Info, RotateCw, TriangleAlert } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, CircleCheck, ExternalLink, FlaskConical, Info, RotateCw, TriangleAlert } from 'lucide-react'
 import type { Attribution, OutgoingTransfer, Receipt, ReceiptSource, ReceiptsView, ReceiptTotals } from '../../types/receipts'
 import { formatDate, formatTime, formatTokenAmount } from '../../lib/format'
 import { useResource } from '../../lib/useResource'
@@ -116,6 +116,31 @@ function Loaded({ view, active, onSelect }: { view: ReceiptsView; active: string
 
   return (
     <>
+      {view.sample ? (
+        <p className="animate-rise -mb-2 mt-6 flex items-start gap-2.5 rounded-xl border border-warn/25 bg-warn-soft px-4 py-3 text-[13px] leading-[1.7] text-fg-2">
+          <FlaskConical className="mt-[2px] size-4 shrink-0 text-warn" aria-hidden />
+          <span>
+            {tx(
+              <>
+                <strong className="font-semibold text-fg">範例資料</strong>：收款、錢包、匯率和 MAX 紀錄都是編的，沒有讀任何真的錢包，所以也沒有鏈上紀錄可以點。看完到
+                <a href={href('#/')} className="focus-ring mx-1 rounded font-medium text-fg underline decoration-primary decoration-2 underline-offset-[3px]">
+                  開始使用
+                </a>
+                清除，就能接你自己的。
+              </>,
+              <>
+                <strong className="font-semibold text-fg">Sample data</strong>: the payments, wallets, exchange rates and MAX records are made up and no real wallet is read, so there are no on-chain links. When you’re done,
+                clear it in{' '}
+                <a href={href('#/')} className="focus-ring rounded font-medium text-fg underline decoration-primary decoration-2 underline-offset-[3px]">
+                  Get started
+                </a>{' '}
+                and connect your own.
+              </>,
+            )}
+          </span>
+        </p>
+      ) : null}
+
       <SourceTabs sources={view.sources} totalCount={view.totals.count} active={key} onSelect={onSelect} />
 
       <div className="mt-4">
@@ -251,7 +276,7 @@ function ReconItem({ r, labelOf }: { r: ReconRow; labelOf: (key: string) => stri
         {extra ? <span className="rounded-md border border-warn/25 bg-warn-soft px-1.5 text-[11.5px] leading-5 text-warn">{extra.label}</span> : null}
         {skipped ? <span className="rounded-md border border-border bg-muted px-1.5 text-[11.5px] leading-5 text-fg-3">{t(`沒列入對帳（${r.status || '—'}）`, `Not reconciled (${r.status || '—'})`)}</span> : null}
         <span className="flex-1" />
-        {r.origin !== 'not-found' ? <TxLink url={`https://solscan.io/tx/${r.txid}`} /> : null}
+        {r.explorerUrl ? <TxLink url={r.explorerUrl} /> : null}
       </div>
       {r.matched ? (
         <div className="mt-2 rounded-lg bg-muted/60 px-3.5 py-2.5 text-[12.5px] leading-[1.7] text-fg-2">
@@ -542,7 +567,7 @@ function Footnotes({ view }: { view: ReceiptsView }) {
                 ) : !w.readable ? (
                   <span className="text-fg-3">{walletLimitText(t, w.limit, w.chain)}</span>
                 ) : (
-                  <span className="text-fg-3">{t('已從鏈上讀取', 'Read from the chain')}</span>
+                  <span className="text-fg-3">{view.sample ? t('範例錢包，沒有讀鏈上', 'Sample wallet — not read from the chain') : t('已從鏈上讀取', 'Read from the chain')}</span>
                 )}
               </span>
             </li>

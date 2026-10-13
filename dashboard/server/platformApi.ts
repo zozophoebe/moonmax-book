@@ -29,7 +29,7 @@ export function platformApi(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://localhost')
         // Reached through a tunnel: only the webhook endpoint is public.
-        if (!isLocalHost(req.headers.host) && url.pathname !== HOOK_PATH) {
+        if (!isLocalHost(req.headers.host) && url.pathname !== HOOK_PATH && !url.pathname.startsWith(`${HOOK_PATH}/`)) {
           res.statusCode = 403
           res.end('Forbidden')
           return

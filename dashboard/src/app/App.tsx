@@ -11,7 +11,7 @@ import { HomePage } from './home/HomePage'
 import { ReceiptsPage } from './receipts/ReceiptsPage'
 import { DocsPage } from './docs/DocsPage'
 
-// Locally there is no login. Deployed: the owner signs in with Google, every time.
+// Locally there is no login. Deployed: anyone signs in with Google and gets their own ledger.
 export function App() {
   const { lang } = useLang()
   const t = useT()

@@ -21,6 +21,7 @@ export type ReconLot = {
 export type ReconRow = {
   id: string // Txid + coin + amount (one transaction can have several rows)
   txid: string // from MAX
+  explorerUrl: string // '' when the transaction isn't on Solana (or in a sample ledger)
   at: string
   currency: string
   amount: string
@@ -47,4 +48,5 @@ export type ReconView = {
   remainingIncome: { token: string; amount: string }[] // MoonPay income not moved to MAX yet
   detectedMaxAddresses: string[]
   maxAddressSet: boolean
+  sample: boolean
 }

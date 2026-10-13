@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, PartyPopper } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowRight, FlaskConical, LoaderCircle, PartyPopper, TriangleAlert } from 'lucide-react'
 import type { SetupState } from '../../types/setup'
 import { useResource } from '../../lib/useResource'
-import { addPaylink, clearMaxAddress, clearWebhookToken, getSetup, removePaylink, saveMaxAddress, saveWebhookToken, updatePaylink } from '../../services/setup'
-import { Card, SectionError, SkeletonBar } from '../../components/atoms'
+import { addPaylink, clearMaxAddress, clearSampleData, clearWebhookToken, getSetup, loadSampleData, removePaylink, saveMaxAddress, saveWebhookToken, updatePaylink } from '../../services/setup'
+import { Button, Card, SectionError, SkeletonBar } from '../../components/atoms'
 import { FlowMap } from '../../components/setup/FlowMap'
 import { StepShell, type StepTone } from '../../components/setup/StepShell'
 import { MaxAddressStep, MaxImportStep, PaylinksStep, WalletsStep, WebhookStep } from '../../components/setup/Steps'
@@ -22,6 +22,17 @@ function doneMap(s: SetupState): Record<StepKey, boolean> {
     max: s.maxDepositAddresses.some((a) => a.chain === 'solana'),
     csv: s.maxImport.records > 0,
   }
+}
+
+const isEmpty = (s: SetupState) => !s.paylinks.length && !s.webhook.configured && !s.maxDepositAddresses.length && !s.maxImport.records
+
+// The sample ledger is read-only: every button and field inside a step is switched off.
+function Lock({ on, children }: { on: boolean; children: ReactNode }) {
+  return (
+    <fieldset disabled={on} className="min-w-0">
+      {children}
+    </fieldset>
+  )
 }
 
 function paylinkSummary(t: T, s: SetupState): string {
@@ -88,6 +99,22 @@ export function HomePage() {
     return k === current ? 'current' : 'todo'
   }
   const isOpen = (k: StepKey) => Boolean(openSteps?.has(k))
+  const locked = Boolean(setup?.sample)
+
+  // Loading or clearing the sample changes everything on every page, so start fresh.
+  const [sampleBusy, setSampleBusy] = useState(false)
+  const [sampleError, setSampleError] = useState<string | null>(null)
+  const switchSample = async (fn: () => Promise<SetupState>) => {
+    setSampleBusy(true)
+    setSampleError(null)
+    try {
+      await fn()
+      window.location.reload()
+    } catch (err) {
+      setSampleError(err instanceof Error ? err.message : String(err))
+      setSampleBusy(false)
+    }
+  }
   const sharedWallet = setup?.wallets.some((w) => w.paylinkIds.length > 1) ?? false
 
   return (
@@ -122,19 +149,29 @@ export function HomePage() {
             </Card>
           ) : setup && done ? (
             <>
+              {setup.sample ? (
+                <SampleBanner busy={sampleBusy} error={sampleError} onClear={() => switchSample(clearSampleData)} />
+              ) : isEmpty(setup) ? (
+                <TrySample busy={sampleBusy} error={sampleError} onLoad={() => switchSample(loadSampleData)} />
+              ) : null}
+
               <StepShell n={1} title={t('加入你的 Pay Link', 'Add your Pay Links')} summary={paylinkSummary(t, setup)} tone={tone('paylinks')} minutes={3} open={isOpen('paylinks')} onToggle={() => toggle('paylinks')}>
-                <PaylinksStep
-                  setup={setup}
-                  busy={busy === 'paylinks'}
-                  error={errors.paylinks ?? null}
-                  onAdd={(input, label) => run('paylinks', () => addPaylink(input, label))}
-                  onUpdate={(id, patch) => run('paylinks', () => updatePaylink(id, patch))}
-                  onRemove={(id) => run('paylinks', () => removePaylink(id))}
-                />
+                <Lock on={locked}>
+                  <PaylinksStep
+                    setup={setup}
+                    busy={busy === 'paylinks'}
+                    error={errors.paylinks ?? null}
+                    onAdd={(input, label) => run('paylinks', () => addPaylink(input, label))}
+                    onUpdate={(id, patch) => run('paylinks', () => updatePaylink(id, patch))}
+                    onRemove={(id) => run('paylinks', () => removePaylink(id))}
+                  />
+                </Lock>
               </StepShell>
 
               <StepShell n={2} title={t('確認收款錢包', 'Check your receiving wallets')} summary={walletSummary(t, setup)} tone={tone('wallets')} minutes={1} open={isOpen('wallets')} onToggle={() => toggle('wallets')}>
-                <WalletsStep setup={setup} open={isOpen('wallets')} />
+                <Lock on={locked}>
+                  <WalletsStep setup={setup} open={isOpen('wallets')} />
+                </Lock>
               </StepShell>
 
               <StepShell
@@ -152,11 +189,15 @@ export function HomePage() {
                 open={isOpen('webhook')}
                 onToggle={() => toggle('webhook')}
               >
-                <WebhookStep setup={setup} busy={busy === 'webhook'} error={errors.webhook ?? null} onSave={(t) => run('webhook', () => saveWebhookToken(t))} onClear={() => run('webhook', clearWebhookToken)} />
+                <Lock on={locked}>
+                  <WebhookStep setup={setup} busy={busy === 'webhook'} error={errors.webhook ?? null} onSave={(t) => run('webhook', () => saveWebhookToken(t))} onClear={() => run('webhook', clearWebhookToken)} />
+                </Lock>
               </StepShell>
 
               <StepShell n={4} title={t('設定 MAX 出金地址', 'Set your MAX deposit address')} summary={done.max ? t('已設定 Solana USDC 入金地址。', 'Solana USDC deposit address set.') : t('出金時要用 MAX 上「同一條網路」的地址。', 'Cash out to the MAX address on the same network.')} tone={tone('max')} minutes={5} open={isOpen('max')} onToggle={() => toggle('max')}>
-                <MaxAddressStep setup={setup} busy={busy === 'max'} error={errors.max ?? null} onSave={(v) => run('max', () => saveMaxAddress(v))} onClear={() => run('max', clearMaxAddress)} />
+                <Lock on={locked}>
+                  <MaxAddressStep setup={setup} busy={busy === 'max'} error={errors.max ?? null} onSave={(v) => run('max', () => saveMaxAddress(v))} onClear={() => run('max', clearMaxAddress)} />
+                </Lock>
               </StepShell>
 
               <StepShell
@@ -172,7 +213,9 @@ export function HomePage() {
                 open={isOpen('csv')}
                 onToggle={() => toggle('csv')}
               >
-                <MaxImportStep setup={setup} onChanged={() => run('csv', getSetup)} onUseAddress={(a) => run('max', () => saveMaxAddress(a))} />
+                <Lock on={locked}>
+                  <MaxImportStep setup={setup} onChanged={() => run('csv', getSetup)} onUseAddress={(a) => run('max', () => saveMaxAddress(a))} />
+                </Lock>
               </StepShell>
 
               {!current ? (
@@ -182,8 +225,8 @@ export function HomePage() {
                     <p className="text-[14.5px] font-semibold">{t('必要的步驟都接好了', 'The required steps are done')}</p>
                     <p className="mt-0.5 text-[13px] leading-[1.7] text-fg-2">
                       {t(
-                        '收款紀錄已經從區塊鏈讀進來，依 Pay Link 分開列。MAX 出金的 CSV 匯入完成後，年度帳本和 FIFO 對帳會接在後面。',
-                        'Your receipts are read from the blockchain and listed by Pay Link. Once MAX CSV import is ready, the yearly ledger and FIFO matching follow.',
+                        '收款紀錄已經從區塊鏈讀進來，依 Pay Link 分開列。匯入 MAX 的 CSV 之後，收款紀錄頁會多一段出金對帳：匯率差和額外轉入都會列出來。',
+                        'Your receipts are read from the blockchain and listed by Pay Link. Import MAX’s CSV and the Receipts page adds a cash-out reconciliation, with exchange-rate differences and extra transfers.',
                       )}
                     </p>
                     <a href={href('#/receipts')} className="focus-ring mt-2 inline-flex items-center gap-1 rounded text-[13px] font-medium text-fg underline decoration-primary decoration-2 underline-offset-[3px]">
@@ -204,6 +247,73 @@ export function HomePage() {
           <DontsCard />
           <PrivacyCard />
         </aside>
+      </div>
+    </div>
+  )
+}
+
+function TrySample({ busy, error, onLoad }: { busy: boolean; error: string | null; onLoad: () => void }) {
+  const t = useT()
+  return (
+    <div className="animate-rise flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-border bg-card px-5 py-4 shadow-sheet">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+        <FlaskConical className="size-5" aria-hidden />
+      </span>
+      <div className="min-w-[220px] flex-1">
+        <p className="text-[14.5px] font-semibold">{t('還沒有 MoonPay 或 MAX 帳號？先看範例', 'No MoonPay or MAX account yet? Try the sample')}</p>
+        <p className="mt-0.5 text-[13px] leading-[1.7] text-fg-3">
+          {t(
+            '載入一本編好的帳：三個網站、九筆收款、三次轉到 MAX，還有兩筆你自己另外轉進 MAX 的。看完清除，就能接你自己的。',
+            'Load a made-up ledger: three sites, nine payments, three transfers to MAX and two deposits sent from elsewhere. Clear it when you’re done and connect your own.',
+          )}
+        </p>
+        {error ? (
+          <p role="alert" className="mt-1.5 flex items-start gap-1.5 text-[13px] text-danger-deep">
+            <TriangleAlert className="mt-[3px] size-3.5 shrink-0" aria-hidden />
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <Button variant="primary" onClick={onLoad} disabled={busy}>
+        {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <FlaskConical className="size-4" aria-hidden />}
+        {t('載入範例資料', 'Load sample data')}
+      </Button>
+    </div>
+  )
+}
+
+function SampleBanner({ busy, error, onClear }: { busy: boolean; error: string | null; onClear: () => void }) {
+  const t = useT()
+  return (
+    <div className="animate-rise flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-warn/25 bg-warn-soft px-5 py-4">
+      <FlaskConical className="size-5 shrink-0 text-warn" aria-hidden />
+      <div className="min-w-[220px] flex-1">
+        <p className="text-[14.5px] font-semibold">{t('你正在看範例資料', 'You’re looking at sample data')}</p>
+        <p className="mt-0.5 text-[13px] leading-[1.7] text-fg-2">
+          {t(
+            '網站、錢包、收款、匯率和 MAX 紀錄都是編的，沒有讀任何真的錢包。範例只能看、不能改；清除後就能接你自己的 MoonPay 和 MAX。',
+            'The sites, wallets, payments, exchange rates and MAX records are all made up — no real wallet is read. You can look but not change anything; clear it to connect your own MoonPay and MAX.',
+          )}
+        </p>
+        {error ? (
+          <p role="alert" className="mt-1.5 flex items-start gap-1.5 text-[13px] text-danger-deep">
+            <TriangleAlert className="mt-[3px] size-3.5 shrink-0" aria-hidden />
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <a
+          href={href('#/receipts')}
+          className="focus-ring inline-flex h-9 items-center gap-1 rounded-lg px-3 text-[13px] font-medium text-fg transition-transform duration-150 hover:bg-card active:scale-[0.97]"
+        >
+          {t('看收款紀錄', 'See receipts')}
+          <ArrowRight className="size-3.5" aria-hidden />
+        </a>
+        <Button onClick={onClear} disabled={busy}>
+          {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : null}
+          {t('清除範例資料', 'Clear sample data')}
+        </Button>
       </div>
     </div>
   )

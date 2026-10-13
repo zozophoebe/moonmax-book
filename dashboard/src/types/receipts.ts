@@ -76,4 +76,5 @@ export type ReceiptsView = {
   outgoing: OutgoingTransfer[]
   wallets: WalletRead[]
   webhookConfigured: boolean
+  sample: boolean // a sample ledger: made-up data, nothing read from the chain
 }

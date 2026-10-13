@@ -44,7 +44,7 @@ export function AccountMenu({ creator, auth }: { creator: Creator | null; auth: 
     )
   }
 
-  const name = creator.companyName ?? t('新的使用者', 'New user')
+  const name = creator.companyName ?? auth.email?.split('@')[0] ?? t('新的使用者', 'New user')
   const sub = creator.sourceCount ? t(`${creator.sourceCount} 個收款來源`, `${creator.sourceCount} payment source${creator.sourceCount > 1 ? 's' : ''}`) : t('尚未設定', 'Not set up yet')
 
   const signOutOnly = async () => {
@@ -77,14 +77,14 @@ export function AccountMenu({ creator, auth }: { creator: Creator | null; auth: 
         <div id={menuId} role="menu" aria-label={t('帳號', 'Account')} className="animate-rise absolute right-0 top-full z-40 mt-2 w-[272px] rounded-xl border border-border bg-card p-1.5 shadow-float">
           <div className="px-3 pb-2.5 pt-2">
             <p className="text-[13.5px] font-medium">{name}</p>
-            <p className="text-[12px] text-fg-3">{auth.ownerEmail ? t(`已用 Google 登入：${auth.ownerEmail}`, `Signed in with Google: ${auth.ownerEmail}`) : sub}</p>
+            <p className="text-[12px] text-fg-3">{auth.email ? t(`已用 Google 登入：${auth.email}`, `Signed in with Google: ${auth.email}`) : sub}</p>
           </div>
           <div className="my-1 h-px bg-border" />
           {auth.method === 'google' ? <MenuItem Icon={LogOut} label={t('登出', 'Sign out')} hint={t('設定都會留著，下次登入繼續用', 'Your settings stay for next time')} disabled={busy} onSelect={signOutOnly} /> : null}
           <MenuItem
             Icon={RotateCcw}
             label={t('登出並回到初始狀態', 'Sign out and start over')}
-            hint={auth.method === 'google' ? t('清除所有設定和綁定的 Google 帳號', 'Clears every setting and the linked Google account') : t('清除所有設定，從第 1 步重新開始', 'Clears every setting; back to step 1')}
+            hint={auth.method === 'google' ? t('清空這個帳號的帳本，從第 1 步重新開始', 'Empties this account’s ledger; back to step 1') : t('清除所有設定，從第 1 步重新開始', 'Clears every setting; back to step 1')}
             tone="danger"
             disabled={busy}
             onSelect={() => {
@@ -155,7 +155,9 @@ function ResetDialog({ method, onCancel }: { method: AuthState['method']; onCanc
           {t('登出並回到初始狀態？', 'Sign out and start over?')}
         </p>
         <p className="mt-2 text-[13.5px] leading-[1.7] text-fg-2">
-          {t('MoonMax Book 會清除自己存的這些東西，下次打開會回到第一次使用的樣子：', 'MoonMax Book will clear what it has stored, so next time it opens like the first time:')}
+          {method === 'google'
+            ? t('MoonMax Book 會清除這個帳號存的這些東西。帳號還在，下次用同一個 Google 帳號登入會看到一本空的帳：', 'MoonMax Book will clear what this account has stored. The account stays — sign in with the same Google account and you’ll find an empty ledger:')
+            : t('MoonMax Book 會清除自己存的這些東西，下次打開會回到第一次使用的樣子：', 'MoonMax Book will clear what it has stored, so next time it opens like the first time:')}
         </p>
         <ul className="mt-2 space-y-1 text-[13.5px] text-fg-2">
           {[
@@ -163,7 +165,7 @@ function ResetDialog({ method, onCancel }: { method: AuthState['method']; onCanc
             t('MoonPay 的 Webhook Secret', 'The MoonPay webhook Secret'),
             t('MAX 出金地址', 'Your MAX deposit address'),
             t('收到的 MoonPay 通知', 'MoonPay notifications received'),
-            ...(method === 'google' ? [t('綁定的 Google 帳號（下次用 Google 登入時重新綁定）', 'The linked Google account (linked again at the next Google sign-in)')] : []),
+            t('匯入的 MAX 紀錄', 'Imported MAX records'),
           ].map((item) => (
             <li key={item} className="flex gap-2">
               <span aria-hidden className="mt-[9px] size-1 shrink-0 rounded-full bg-danger" />

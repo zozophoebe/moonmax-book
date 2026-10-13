@@ -5,25 +5,25 @@
 
 import type { Attribution, OutgoingTransfer, Receipt, ReceiptSource, ReceiptsView, ReceiptTotals, WalletRead } from '../src/types/receipts'
 import type { PaylinkEntry, ReceivingWallet, SetupState } from '../src/types/setup'
-import { readSolanaWallet, solscanTx, type ChainTransfer } from './chain'
+import { solscanTx, type ChainTransfer } from './chain'
 import type { PlatformConfig } from './config'
-import { FX_SOURCE, ratesFor, twdValue } from './fx'
+import { FX_SOURCE, twdValue } from './fx'
 import { errorText, T, type Lang } from './i18n'
 import { tokenString, toUnits } from './money'
-import { fetchPublicPaylink, toPreview } from './moonpay'
 import type { Storage } from './storage'
 import { loadWebhookEvents, loadWebhookSecret, type StoredWebhookEvent } from './store'
 import { maxImportStatus, maxTxids } from './max'
+import type { Sources } from './sources'
 
 export const HOOK_PATH = '/api/hook/moonpay'
 const USDC_DECIMALS = 6
 const PRICE_TOLERANCE_PCT = 3n // swaps and fees move the paid amount a little
 
-export async function loadPaylinkEntries(config: PlatformConfig, lang: Lang): Promise<PaylinkEntry[]> {
+export async function loadPaylinkEntries(config: PlatformConfig, lang: Lang, src: Sources): Promise<PaylinkEntry[]> {
   return Promise.all(
     config.paylinks.map(async (p): Promise<PaylinkEntry> => {
       try {
-        return { ...p, preview: toPreview(p.id, await fetchPublicPaylink(p.id)), error: null }
+        return { ...p, label: src.labelFor?.(p.id, lang) ?? p.label, preview: await src.paylink(p.id), error: null }
       } catch (e) {
         return { ...p, preview: null, error: errorText(lang, e, T('讀不到 MoonPay 上的付款連結', 'Could not read this Pay Link from MoonPay')) }
       }
@@ -54,8 +54,8 @@ export function walletsFrom(entries: PaylinkEntry[]): ReceivingWallet[] {
   return [...byAddress.values()]
 }
 
-export async function setupState(storage: Storage, config: PlatformConfig, lang: Lang): Promise<SetupState> {
-  const paylinks = await loadPaylinkEntries(config, lang)
+export async function setupState(storage: Storage, config: PlatformConfig, lang: Lang, src: Sources, hookPath: string): Promise<SetupState> {
+  const paylinks = await loadPaylinkEntries(config, lang, src)
   const secret = await loadWebhookSecret(storage)
   const events = await loadWebhookEvents(storage)
   return {
@@ -68,10 +68,11 @@ export async function setupState(storage: Storage, config: PlatformConfig, lang:
       savedAt: secret?.savedAt ?? null,
       eventCount: events.length,
       lastEventAt: events.reduce<string | null>((m, e) => (!m || e.receivedAt > m ? e.receivedAt : m), null),
-      hookPath: HOOK_PATH,
+      hookPath,
     },
     maxDepositAddresses: config.maxDepositAddresses,
     maxImport: await maxImportStatus(storage),
+    sample: src.sample,
   }
 }
 
@@ -101,8 +102,8 @@ function attribute(
   return { key: 'unmatched', attribution: 'unmatched' }
 }
 
-export async function buildReceipts(storage: Storage, config: PlatformConfig, lang: Lang): Promise<ReceiptsView> {
-  const entries = await loadPaylinkEntries(config, lang)
+export async function buildReceipts(storage: Storage, config: PlatformConfig, lang: Lang, src: Sources): Promise<ReceiptsView> {
+  const entries = await loadPaylinkEntries(config, lang, src)
   const wallets = walletsFrom(entries)
   const events = await loadWebhookEvents(storage)
   const eventBySig = new Map(events.map((e) => [e.transactionSignature, e]))
@@ -117,7 +118,7 @@ export async function buildReceipts(storage: Storage, config: PlatformConfig, la
       continue
     }
     try {
-      transfers.push(...(await readSolanaWallet(storage, w.address)))
+      transfers.push(...(await src.wallet(storage, w.address)))
       reads.push({ chain: w.chain, address: w.address, readable: true, error: null, limit: null })
     } catch (e) {
       reads.push({ chain: w.chain, address: w.address, readable: true, error: errorText(lang, e, T('讀不到這個錢包', 'Could not read this wallet')), limit: null })
@@ -144,7 +145,7 @@ export async function buildReceipts(storage: Storage, config: PlatformConfig, la
       sourceKey: key,
       attribution,
       verifiedOnChain: true,
-      explorerUrl: solscanTx(t.signature),
+      explorerUrl: src.explorer(t.signature),
       grossUnits: gross,
       netUnits: t.amountUnits,
       feeUnits: t.feeUnits ?? 0n,
@@ -175,7 +176,7 @@ export async function buildReceipts(storage: Storage, config: PlatformConfig, la
     })
   }
 
-  const rates = await ratesFor(storage, drafts.map((d) => d.receivedAt))
+  const rates = await src.rates(storage, drafts.map((d) => d.receivedAt))
   const receipts: Receipt[] = drafts
     .map(({ grossUnits, netUnits: _net, feeUnits: _fee, ...d }) => {
       const rate = rates.get(d.receivedAt) ?? null
@@ -242,8 +243,10 @@ export async function buildReceipts(storage: Storage, config: PlatformConfig, la
       to: t.counterparty,
       // A known MAX deposit address, or a transfer MAX's own CSV lists as a deposit.
       toMax: Boolean((t.counterparty && maxAddresses.has(t.counterparty)) || maxDeposits.has(t.signature)),
-      explorerUrl: solscanTx(t.signature),
+      explorerUrl: src.explorer(t.signature),
     }))
+    // Several wallets are read one after another; show their transfers newest first, together.
+    .sort((a, b) => b.sentAt.localeCompare(a.sentAt))
 
   return {
     checkedAt: new Date().toISOString(),
@@ -254,5 +257,6 @@ export async function buildReceipts(storage: Storage, config: PlatformConfig, la
     outgoing,
     wallets: reads,
     webhookConfigured: Boolean((await loadWebhookSecret(storage))?.sharedToken),
+    sample: src.sample,
   }
 }

@@ -79,11 +79,11 @@ export function PrivacyCard() {
   const deployed = isDeployed()
   const rows = deployed
     ? [
-        { Icon: FileCode2, file: t('設定', 'Settings'), body: t('Pay Link ID、網站網址、MAX 地址。都是公開資訊，存在這個網站專用的私人 Vercel Blob。', 'Pay Link IDs, site addresses, MAX address — all public information, kept in this site’s private Vercel Blob store.') },
+        { Icon: FileCode2, file: t('設定', 'Settings'), body: t('Pay Link ID、網站網址、MAX 地址。都是公開資訊，存在這個網站專用的私人 Vercel Blob，每個帳號分開存放。', 'Pay Link IDs, site addresses, MAX address — all public information, kept in this site’s private Vercel Blob store, separately for each account.') },
         { Icon: FileLock2, file: 'Webhook Secret', body: t('同一個私人 Blob，只有這個網站的伺服器讀得到，畫面只顯示最後 4 碼。', 'Same private store; only this site’s server can read it, and the page shows just the last 4 characters.') },
         { Icon: Database, file: t('MoonPay 通知', 'MoonPay notifications'), body: t('只留金額、時間、交易編號和 Pay Link，買家個資收到就丟。', 'Only amount, time, transaction ID and Pay Link are kept; buyer details are thrown away on arrival.') },
         { Icon: Database, file: t('MAX 紀錄', 'MAX records'), body: t('匯入的 CSV 只留日期、幣別、金額、交易編號和狀態，可以隨時清除。', 'Imported CSVs keep only date, coin, amount, transaction ID and status; clear them any time.') },
-        { Icon: FileLock2, file: t('登入', 'Sign-in'), body: t('只能用綁定的 Google 帳號登入。Google 金鑰放在 Vercel 的環境變數，網站上看不到。', 'Only the linked Google account can sign in. The Google keys sit in Vercel environment variables, never on the page.') },
+        { Icon: FileLock2, file: t('登入', 'Sign-in'), body: t('用 Google 登入，每個 Google 帳號只看得到自己的帳本。Google 金鑰放在 Vercel 的環境變數，網站上看不到。', 'Sign in with Google; each Google account sees only its own ledger. The Google keys sit in Vercel environment variables, never on the page.') },
       ]
     : [
         { Icon: FileCode2, file: 'platform.config.json', body: t('Pay Link ID、網站網址、MAX 地址。都是公開資訊。', 'Pay Link IDs, site addresses, MAX address — all public information.') },

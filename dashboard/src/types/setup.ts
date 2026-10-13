@@ -66,4 +66,5 @@ export type SetupState = {
   webhook: WebhookState
   maxDepositAddresses: DepositAddress[]
   maxImport: { files: number; records: number; lastImportedAt: string | null }
+  sample: boolean // showing the sample ledger; writes are blocked until it's cleared
 }
